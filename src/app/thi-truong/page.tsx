@@ -9,7 +9,7 @@ import {
   fetchTopCoins,
 } from "@/lib/markets";
 
-export const revalidate = 60;
+
 
 export const metadata: Metadata = {
   title: "Thị trường",

@@ -56,36 +56,6 @@ function sourceLabel(source: string, pair: string | null) {
   return "";
 }
 
-type ApiChartJson = {
-  candles: Candle[];
-  source: string;
-  pair?: string | null;
-  error?: string | null;
-  ms?: number | null;
-};
-
-async function fetchServerChart(
-  coinId: string,
-  symbol: string,
-  range: ChartRange,
-  timeoutMs: number,
-): Promise<ApiChartJson | null> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(
-      `/api/chart?id=${encodeURIComponent(coinId)}&symbol=${encodeURIComponent(symbol)}&range=${range}`,
-      { signal: ctrl.signal, cache: "no-store" },
-    );
-    if (!res.ok) return null;
-    return (await res.json()) as ApiChartJson;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export function PriceChart({
   coinId,
   symbol,
@@ -225,10 +195,8 @@ export function PriceChart({
   }, []);
 
   /**
-   * Load siêu nhanh – race song song:
-   * 1) cache tab (0ms)
-   * 2) Binance CORS + /api/chart CÙNG LÚC → ai về trước có data thắng
-   * 3) 1 lần retry ngắn nếu cả hai fail
+   * Static Pages: chỉ Binance từ browser (CORS *).
+   * 1) cache tab  2) race multi-host  3) retry
    */
   const loadRange = useCallback(
     async (next: ChartRange, opts?: { soft?: boolean }) => {
@@ -237,14 +205,12 @@ export function PriceChart({
       setLive(false);
       setLoadError(null);
 
-      // 0) Instant cache
       const cached = peekChartCache(symbol, next);
       if (cached && cached.length >= 2) {
         setSource("binance");
         setPairLabel(toBinanceSymbol(symbol));
         applyCandles(cached, true);
         setLoading(false);
-        // soft background refresh
         void fetchBinanceKlinesFast(symbol, next, 2500).then((bn) => {
           if (gen !== loadGen.current) return;
           if (bn.candles.length >= 2) applyCandles(bn.candles, false);
@@ -252,74 +218,20 @@ export function PriceChart({
         return;
       }
 
-      // Soft: giữ chart cũ, không overlay full loading
       if (!opts?.soft) setLoading(true);
 
-      // 1) Race client Binance + server API
-      type Win = {
-        candles: Candle[];
-        source: string;
-        pair: string | null;
-      };
-
-      const clientP = fetchBinanceKlinesFast(symbol, next, 2800).then(
-        (bn): Win | null => {
-          if (bn.candles.length < 2) return null;
-          return {
-            candles: bn.candles,
-            source: "binance",
-            pair: bn.pair,
-          };
-        },
-      );
-
-      const serverP = fetchServerChart(coinId, symbol, next, 4500).then(
-        (json): Win | null => {
-          if (!json?.candles || json.candles.length < 2) return null;
-          return {
-            candles: json.candles,
-            source: json.source || "coingecko",
-            pair: json.pair ?? toBinanceSymbol(symbol),
-          };
-        },
-      );
-
-      // Prefer first success (Binance often wins)
-      let winner: Win | null = null;
-      try {
-        winner = await Promise.any([
-          clientP.then((w) => {
-            if (!w) throw new Error("empty");
-            return w;
-          }),
-          serverP.then((w) => {
-            if (!w) throw new Error("empty");
-            return w;
-          }),
-        ]);
-      } catch {
-        // both failed first wave – wait residual if any still pending
-        const [c, s] = await Promise.all([clientP, serverP]);
-        winner = c || s;
-      }
-
+      let bn = await fetchBinanceKlinesFast(symbol, next, 3200);
       if (gen !== loadGen.current) return;
 
-      if (winner && winner.candles.length >= 2) {
-        setSource(winner.source);
-        setPairLabel(winner.pair);
-        applyCandles(winner.candles, true);
-        setLoading(false);
-        return;
+      if (bn.candles.length < 2) {
+        bn = await fetchBinanceKlinesFast(symbol, next, 2500);
+        if (gen !== loadGen.current) return;
       }
 
-      // 2) One quick retry (network blip)
-      const retry = await fetchBinanceKlinesFast(symbol, next, 2000);
-      if (gen !== loadGen.current) return;
-      if (retry.candles.length >= 2) {
+      if (bn.candles.length >= 2) {
         setSource("binance");
-        setPairLabel(retry.pair);
-        applyCandles(retry.candles, true);
+        setPairLabel(bn.pair);
+        applyCandles(bn.candles, true);
         setLoading(false);
         return;
       }
@@ -327,7 +239,7 @@ export function PriceChart({
       setLoadError("Không tải được biểu đồ. Kiểm tra mạng rồi thử lại.");
       if (gen === loadGen.current) setLoading(false);
     },
-    [applyCandles, coinId, symbol],
+    [applyCandles, symbol],
   );
 
   // Mount: paint SSR ngay; refresh nếu thiếu / non-binance

@@ -13,7 +13,7 @@ import {
 } from "@/lib/markets";
 import { getLatestPosts, getNewsMeta } from "@/lib/news";
 
-export const revalidate = 60;
+
 
 /**
  * Design read: crypto market dashboard cho trader VN.

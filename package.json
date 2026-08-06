@@ -5,14 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "npx serve out",
     "lint": "eslint",
     "scrape": "node scripts/scrape-news.mjs",
     "prebuild": "node -e \"const fs=require('fs');if(!fs.existsSync('data/news.json')){fs.mkdirSync('data',{recursive:true});fs.writeFileSync('data/news.json',JSON.stringify({updatedAt:new Date(0).toISOString(),posts:[],sources:[]},null,2))}\"",
-    "pages:build": "opennextjs-cloudflare build",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "pages:deploy": "next build && wrangler pages deploy out --project-name=crypto-market-vn --commit-dirty=true",
+    "deploy": "npm run pages:deploy"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -24,7 +22,6 @@
     "sharp": "^0.35.3"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.20.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

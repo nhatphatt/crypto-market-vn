@@ -22,16 +22,24 @@ import { LivePriceHeader } from "@/components/LivePriceHeader";
 
 type Props = { params: Promise<{ id: string }> };
 
-export const revalidate = 60;
-export const dynamicParams = true;
+/** Static export (Cloudflare Pages): prebuild top coin */
+export const dynamicParams = false;
 
 export async function generateStaticParams() {
   try {
     const { fetchTopCoinIds } = await import("@/lib/markets");
-    const ids = await fetchTopCoinIds(40);
+    const ids = await fetchTopCoinIds(80);
     return ids.map((id) => ({ id }));
   } catch {
-    return [{ id: "bitcoin" }, { id: "ethereum" }, { id: "solana" }];
+    return [
+      { id: "bitcoin" },
+      { id: "ethereum" },
+      { id: "solana" },
+      { id: "binancecoin" },
+      { id: "ripple" },
+      { id: "dogecoin" },
+      { id: "cardano" },
+    ];
   }
 }
 

@@ -216,7 +216,7 @@ function generateFeaturedSvg({ title, source, coins, dateLabel }) {
   <text x="164" y="505" text-anchor="middle" fill="#181A20" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700">${escapeXml(coinLabel)}</text>
   <text x="64" y="560" fill="#707A8A" font-family="Segoe UI, system-ui, sans-serif" font-size="13">Tin thị trường · Tham khảo, không phải tư vấn đầu tư</text>
 </svg>`;
-
+}
 
 function extractImageFromItem(item) {
   if (item.enclosure?.url && /\.(jpe?g|png|webp|gif)/i.test(item.enclosure.url)) {

@@ -1,8 +1,15 @@
 import type { NextConfig } from "next";
-import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
+/**
+ * Static export → Cloudflare Pages (không Workers).
+ * Giá/chart realtime: browser → Binance.
+ * Tin: build-time từ data/news.json (Actions scrape + redeploy).
+ */
 const nextConfig: NextConfig = {
+  output: "export",
+  trailingSlash: true,
   images: {
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "coin-images.coingecko.com" },
       { protocol: "https", hostname: "assets.coingecko.com" },
@@ -19,11 +26,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.coin68.com" },
       { protocol: "https", hostname: "**.blogtienao.com" },
     ],
-    unoptimized: true,
   },
 };
 
 export default nextConfig;
-
-// Cloudflare bindings trong `next dev` (no-op khi build production)
-initOpenNextCloudflareForDev();

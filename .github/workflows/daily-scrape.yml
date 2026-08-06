@@ -1,9 +1,8 @@
-# Auto scrape news -> commit data -> Cloudflare rebuild via git push
+# Scrape tin + build static + deploy Cloudflare Pages
 name: news-scrape
 
 on:
   schedule:
-    # Every 6 hours UTC
     - cron: "15 */6 * * *"
   workflow_dispatch:
 
@@ -15,9 +14,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  scrape:
+  scrape-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,20 +30,32 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Scrape RSS + featured images
+      - name: Scrape RSS
         run: npm run scrape
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
-      - name: Commit and push if changed
+      - name: Commit news if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/news.json public/images/posts || true
           if git diff --staged --quiet; then
-            echo "No news changes."
+            echo "No news file changes (still rebuild for market HTML)."
           else
             git commit -m "chore(news): auto scrape $(date -u +%Y-%m-%dT%H:%MZ)"
             git push
-            echo "Pushed — redeploy CF after connect or re-run deploy."
           fi
+
+      - name: Static export build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://crypto-market-vn.pages.dev
+
+      - name: Deploy Cloudflare Pages
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy out --project-name=crypto-market-vn --commit-dirty=true

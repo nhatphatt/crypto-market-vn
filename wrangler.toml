@@ -1,16 +1,4 @@
-# Cloudflare Workers (OpenNext) — deploy: npm run deploy
+# Cloudflare Pages (static) — không dùng Workers
 name = "crypto-market-vn"
-main = ".open-next/worker.js"
 compatibility_date = "2025-07-01"
-compatibility_flags = ["nodejs_compat"]
-
-[assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
-
-# Preview / Pages-style URL after first deploy
-# workers.dev subdomain is auto-assigned
-
-[vars]
-# Override in Cloudflare Dashboard for production:
-# NEXT_PUBLIC_SITE_URL = "https://crypto-market-vn.pages.dev"
+pages_build_output_dir = "out"
