@@ -104,11 +104,13 @@ async function fetchJson(
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
+    // Fetch thuần — tương thích Cloudflare Workers / Node
     const res = await fetch(url, {
       signal: ctrl.signal,
-      headers: { Accept: "application/json" },
-      next: { revalidate: 45 },
-      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "CryptoMarketVN/1.0",
+      },
     });
     if (!res.ok) return { ok: false, status: res.status, data: null };
     return { ok: true, status: res.status, data: await res.json() };

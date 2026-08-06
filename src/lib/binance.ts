@@ -166,8 +166,11 @@ export async function fetchBinanceTicker(
   if (!pair) return null;
   try {
     const res = await fetch(`${BASE}/ticker/24hr?symbol=${pair}`, {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "CryptoMarketVN/1.0",
+      },
       next: { revalidate: 30 },
-      headers: { Accept: "application/json" },
     });
     if (!res.ok) return null;
     const j = (await res.json()) as Record<string, string>;

@@ -39,9 +39,79 @@ export type CoinDetail = {
   last_updated: string;
 };
 
+/** Map id phổ biến → symbol khi CoinGecko fail (CF Worker / rate limit) */
+const ID_SYMBOL: Record<string, { symbol: string; name: string }> = {
+  bitcoin: { symbol: "btc", name: "Bitcoin" },
+  ethereum: { symbol: "eth", name: "Ethereum" },
+  tether: { symbol: "usdt", name: "Tether" },
+  binancecoin: { symbol: "bnb", name: "BNB" },
+  solana: { symbol: "sol", name: "Solana" },
+  ripple: { symbol: "xrp", name: "XRP" },
+  "usd-coin": { symbol: "usdc", name: "USDC" },
+  dogecoin: { symbol: "doge", name: "Dogecoin" },
+  cardano: { symbol: "ada", name: "Cardano" },
+  tron: { symbol: "trx", name: "TRON" },
+  avalanche_2: { symbol: "avax", name: "Avalanche" },
+  "avalanche-2": { symbol: "avax", name: "Avalanche" },
+  chainlink: { symbol: "link", name: "Chainlink" },
+  the_open_network: { symbol: "ton", name: "Toncoin" },
+  "the-open-network": { symbol: "ton", name: "Toncoin" },
+  sui: { symbol: "sui", name: "Sui" },
+  pepe: { symbol: "pepe", name: "Pepe" },
+  polkadot: { symbol: "dot", name: "Polkadot" },
+  "polygon-ecosystem-token": { symbol: "pol", name: "POL" },
+  near: { symbol: "near", name: "NEAR" },
+  aptos: { symbol: "apt", name: "Aptos" },
+  arbitrum: { symbol: "arb", name: "Arbitrum" },
+  optimism: { symbol: "op", name: "Optimism" },
+  litecoin: { symbol: "ltc", name: "Litecoin" },
+  "shiba-inu": { symbol: "shib", name: "Shiba Inu" },
+};
+
+function fallbackCoin(id: string, tickerPrice = 0, change24: number | null = null): CoinDetail {
+  const known = ID_SYMBOL[id.toLowerCase()];
+  const symbol = known?.symbol || id.replace(/-/g, "").slice(0, 8);
+  const name =
+    known?.name ||
+    id
+      .split("-")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  return {
+    id,
+    symbol,
+    name,
+    image: "",
+    descriptionVi:
+      "Dữ liệu chi tiết tạm thời không tải được từ CoinGecko. Giá realtime vẫn lấy từ Binance khi có cặp USDT.",
+    homepage: undefined,
+    categories: [],
+    market_cap_rank: null,
+    current_price: tickerPrice,
+    market_cap: 0,
+    total_volume: 0,
+    high_24h: null,
+    low_24h: null,
+    ath: null,
+    ath_change_percentage: null,
+    ath_date: null,
+    atl: null,
+    circulating_supply: null,
+    total_supply: null,
+    max_supply: null,
+    price_change_percentage_24h: change24,
+    price_change_percentage_7d: null,
+    price_change_percentage_30d: null,
+    price_change_percentage_1h: null,
+    last_updated: new Date().toISOString(),
+  };
+}
+
 export async function fetchCoinDetail(id: string): Promise<CoinDetail | null> {
+  if (!id || !/^[a-z0-9-]+$/i.test(id)) return null;
+
   try {
-    const url = new URL(`${COINGECKO}/coins/${id}`);
+    const url = new URL(`${COINGECKO}/coins/${encodeURIComponent(id)}`);
     url.searchParams.set("localization", "true");
     url.searchParams.set("tickers", "false");
     url.searchParams.set("market_data", "true");
@@ -50,10 +120,19 @@ export async function fetchCoinDetail(id: string): Promise<CoinDetail | null> {
     url.searchParams.set("sparkline", "false");
 
     const res = await fetch(url.toString(), {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "CryptoMarketVN/1.0",
+      },
       next: { revalidate: 60 },
-      headers: { Accept: "application/json" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // CF / rate-limit: vẫn mở trang bằng Binance
+      const known = ID_SYMBOL[id.toLowerCase()];
+      const sym = known?.symbol || id;
+      const t = await fetchBinanceTicker(sym);
+      return fallbackCoin(id, t?.lastPrice ?? 0, t?.priceChangePercent ?? null);
+    }
     const j = (await res.json()) as {
       id: string;
       symbol: string;
@@ -123,7 +202,14 @@ export async function fetchCoinDetail(id: string): Promise<CoinDetail | null> {
     };
   } catch (e) {
     console.error("fetchCoinDetail", e);
-    return null;
+    const known = ID_SYMBOL[id.toLowerCase()];
+    const sym = known?.symbol || id;
+    try {
+      const t = await fetchBinanceTicker(sym);
+      return fallbackCoin(id, t?.lastPrice ?? 0, t?.priceChangePercent ?? null);
+    } catch {
+      return fallbackCoin(id);
+    }
   }
 }
 

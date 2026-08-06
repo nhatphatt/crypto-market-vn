@@ -1,9 +1,9 @@
-# Cào tin tự động → commit data → Cloudflare Pages (GitHub integration) auto-deploy
-name: Cào tin tự động
+# Auto scrape news -> commit data -> Cloudflare rebuild via git push
+name: news-scrape
 
 on:
   schedule:
-    # Mỗi 6 giờ UTC → tin cập nhật 4 lần/ngày (không phụ thuộc máy local)
+    # Every 6 hours UTC
     - cron: "15 */6 * * *"
   workflow_dispatch:
 
@@ -21,7 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Token mặc định đủ push nếu repo settings cho Actions write
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -29,24 +28,23 @@ jobs:
           node-version: "22"
           cache: npm
 
-      - name: Cài dependency
+      - name: Install
         run: npm ci
 
-      - name: Cào RSS + generate ảnh featured
+      - name: Scrape RSS + featured images
         run: npm run scrape
         env:
-          # Tránh hang quá lâu trên CI
           NODE_OPTIONS: --max-old-space-size=4096
 
-      - name: Commit & push nếu có tin mới
+      - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/news.json public/images/posts || true
           if git diff --staged --quiet; then
-            echo "Không có thay đổi tin."
+            echo "No news changes."
           else
             git commit -m "chore(news): auto scrape $(date -u +%Y-%m-%dT%H:%MZ)"
             git push
-            echo "Đã push — Cloudflare Pages sẽ rebuild."
+            echo "Pushed — redeploy CF after connect or re-run deploy."
           fi
