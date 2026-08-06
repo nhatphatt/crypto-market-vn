@@ -215,55 +215,77 @@ const FALLBACK_PAIRS = [
   "MOVEUSDT",
 ];
 
-/** Fallback: ticker 24h chỉ các cặp top (nhẹ, ổn định) */
-async function fetchTopCoinsFromBinance(limit: number): Promise<CoinMarket[]> {
-  try {
-    const pairs = FALLBACK_PAIRS.slice(0, Math.max(limit, 40));
-    // Binance: ?symbols=["BTCUSDT","ETHUSDT",...]
-    const symbolsParam = encodeURIComponent(JSON.stringify(pairs));
-    const res = await fetch(`${BINANCE}/ticker/24hr?symbols=${symbolsParam}`, {
-      next: { revalidate: 30 },
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return [];
-    const rows = (await res.json()) as Array<Record<string, string>>;
-    if (!Array.isArray(rows)) return [];
+const BINANCE_HOSTS = [
+  "https://data-api.binance.vision",
+  "https://api.binance.com",
+] as const;
 
-    return rows
-      .map((r) => {
-        const pair = r.symbol;
-        const base = pair.replace(/USDT$/, "");
-        const sym = base.toLowerCase();
-        const id = SYM_TO_ID[sym] || sym;
-        const price = Number(r.lastPrice);
-        const change = Number(r.priceChangePercent);
-        const quoteVol = Number(r.quoteVolume);
-        return {
-          id,
-          symbol: sym,
-          name: base,
-          image: iconFor(sym),
-          current_price: price,
-          market_cap: 0,
-          market_cap_rank: 0,
-          total_volume: quoteVol,
-          price_change_percentage_24h: change,
-          price_change_percentage_24h_in_currency: change,
-          price_change_percentage_1h_in_currency: null,
-          price_change_percentage_7d_in_currency: null,
-          _quoteVol: quoteVol,
-        } as CoinMarket & { _quoteVol: number };
-      })
-      .filter((c) => Number.isFinite(c.current_price) && c.current_price > 0)
-      .sort((a, b) => b._quoteVol - a._quoteVol)
-      .slice(0, limit)
-      .map((c, i) => {
-        const { _quoteVol, ...rest } = c;
-        return { ...rest, market_cap_rank: i + 1 };
-      });
-  } catch {
-    return [];
+function mapBinanceRows(
+  rows: Array<Record<string, string>>,
+  limit: number,
+): CoinMarket[] {
+  return rows
+    .map((r) => {
+      const pair = r.symbol;
+      const base = pair.replace(/USDT$/, "");
+      const sym = base.toLowerCase();
+      const id = SYM_TO_ID[sym] || sym;
+      const price = Number(r.lastPrice);
+      const change = Number(r.priceChangePercent);
+      const quoteVol = Number(r.quoteVolume);
+      return {
+        id,
+        symbol: sym,
+        name: base,
+        image: iconFor(sym),
+        current_price: price,
+        market_cap: 0,
+        market_cap_rank: 0,
+        total_volume: quoteVol,
+        price_change_percentage_24h: change,
+        price_change_percentage_24h_in_currency: change,
+        price_change_percentage_1h_in_currency: null,
+        price_change_percentage_7d_in_currency: null,
+        _quoteVol: quoteVol,
+      } as CoinMarket & { _quoteVol: number };
+    })
+    .filter((c) => Number.isFinite(c.current_price) && c.current_price > 0)
+    .sort((a, b) => b._quoteVol - a._quoteVol)
+    .slice(0, limit)
+    .map((c, i) => {
+      const { _quoteVol, ...rest } = c;
+      return { ...rest, market_cap_rank: i + 1 };
+    });
+}
+
+/** Fallback: ticker 24h multi-host (build-time + runtime) */
+async function fetchTopCoinsFromBinance(limit: number): Promise<CoinMarket[]> {
+  const pairs = FALLBACK_PAIRS.slice(0, Math.max(limit, 40));
+  const symbolsParam = encodeURIComponent(JSON.stringify(pairs));
+
+  for (const host of BINANCE_HOSTS) {
+    try {
+      const res = await fetch(
+        `${host}/api/v3/ticker/24hr?symbols=${symbolsParam}`,
+        {
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "CryptoMarketVN/1.0",
+          },
+          // static export build: plain fetch
+          next: { revalidate: 30 },
+        },
+      );
+      if (!res.ok) continue;
+      const rows = (await res.json()) as Array<Record<string, string>>;
+      if (!Array.isArray(rows) || !rows.length) continue;
+      const mapped = mapBinanceRows(rows, limit);
+      if (mapped.length) return mapped;
+    } catch {
+      /* next host */
+    }
   }
+  return [];
 }
 
 async function fetchTopCoinsFromCoinGecko(

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { MagnifyingGlass, Star } from "@phosphor-icons/react";
 import type { CoinMarket } from "@/lib/types";
 import { useBinanceLive } from "@/lib/use-binance-live";
+import { useMarketCoins } from "@/lib/use-market-coins";
 import { useWatchlist } from "@/lib/use-watchlist";
 import { HotTicker } from "./HotTicker";
 import { MarketTable } from "./MarketTable";
@@ -31,10 +32,11 @@ function changeOf(
  * Toàn bộ khối market /thi-truong:
  * 1 stream Binance cho ticker + movers + bảng (không lặp WS).
  */
-export function MarketWorkspace({ coins }: { coins: CoinMarket[] }) {
+export function MarketWorkspace({ coins: initialCoins }: { coins: CoinMarket[] }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const { ids: watchIds, toggle, ready } = useWatchlist();
+  const { coins, loading, error, reload } = useMarketCoins(initialCoins, 100);
 
   const symbols = useMemo(() => coins.map((c) => c.symbol), [coins]);
   const { quotes, live } = useBinanceLive(symbols);
@@ -200,15 +202,36 @@ export function MarketWorkspace({ coins }: { coins: CoinMarket[] }) {
         </div>
       )}
 
-      <MarketTable
-        coins={filtered}
-        title={tableTitle}
-        quotes={quotes}
-        live={live}
-        showLiveBadge
-      />
+      {loading && coins.length === 0 && (
+        <p className="rounded-xl border border-hairline bg-surface-card px-5 py-10 text-center text-sm text-muted">
+          Đang tải giá từ Binance…
+        </p>
+      )}
 
-      {filter === "watch" && filtered.length === 0 && (
+      {error && coins.length === 0 && !loading && (
+        <div className="rounded-xl border border-hairline bg-surface-card px-5 py-10 text-center">
+          <p className="text-sm text-muted">{error}</p>
+          <button
+            type="button"
+            onClick={reload}
+            className="mt-3 text-sm font-semibold text-primary hover:underline"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
+      {(coins.length > 0 || (!loading && !error)) && (
+        <MarketTable
+          coins={filtered}
+          title={tableTitle}
+          quotes={quotes}
+          live={live}
+          showLiveBadge
+        />
+      )}
+
+      {filter === "watch" && filtered.length === 0 && coins.length > 0 && (
         <p className="text-center text-sm text-muted">
           Chưa có coin trong danh sách theo dõi. Mở trang chi tiết coin và bấm
           ngôi sao để thêm.

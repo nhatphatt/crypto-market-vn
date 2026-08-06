@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { ArrowRight } from "@phosphor-icons/react";
 import type { CoinMarket } from "@/lib/types";
 import { useBinanceLive } from "@/lib/use-binance-live";
+import { useMarketCoins } from "@/lib/use-market-coins";
 import { HotTicker } from "./HotTicker";
 import { MarketTable } from "./MarketTable";
 import { MoverList } from "./MoverList";
@@ -30,7 +31,8 @@ function pickMoversLive(
     .map((s) => s.coin);
 }
 
-export function HomeMarkets({ coins }: { coins: CoinMarket[] }) {
+export function HomeMarkets({ coins: initialCoins }: { coins: CoinMarket[] }) {
+  const { coins, loading, error, reload } = useMarketCoins(initialCoins, 30);
   const symbols = useMemo(() => coins.map((c) => c.symbol), [coins]);
   const { quotes, live } = useBinanceLive(symbols);
 
@@ -86,13 +88,32 @@ export function HomeMarkets({ coins }: { coins: CoinMarket[] }) {
         <MoverList title="Giảm mạnh" coins={losers} quotes={quotes} />
       </div>
 
-      <MarketTable
-        coins={coins}
-        title="Top 30"
-        quotes={quotes}
-        live={live}
-        showLiveBadge={false}
-      />
+      {loading && coins.length === 0 && (
+        <p className="rounded-xl border border-hairline bg-surface-card px-5 py-8 text-center text-sm text-muted">
+          Đang tải giá…
+        </p>
+      )}
+      {error && coins.length === 0 && !loading && (
+        <div className="rounded-xl border border-hairline bg-surface-card px-5 py-8 text-center">
+          <p className="text-sm text-muted">{error}</p>
+          <button
+            type="button"
+            onClick={reload}
+            className="mt-2 text-sm font-semibold text-primary hover:underline"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+      {coins.length > 0 && (
+        <MarketTable
+          coins={coins}
+          title="Top 30"
+          quotes={quotes}
+          live={live}
+          showLiveBadge={false}
+        />
+      )}
     </div>
   );
 }
