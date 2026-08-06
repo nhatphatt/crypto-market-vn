@@ -27,6 +27,12 @@
 .DS_Store
 *.pem
 
+# local promo recordings / frames (không deploy)
+/promo/
+
+# OG source art (chỉ dùng rebuild local)
+# assets/og-source.jpg được commit nếu cần rebuild CI
+
 # debug
 npm-debug.log*
 yarn-debug.log*
