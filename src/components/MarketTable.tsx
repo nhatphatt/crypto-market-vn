@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { CoinMarket } from "@/lib/types";
 import { formatUsd } from "@/lib/format";
@@ -10,6 +9,7 @@ import {
   type LiveQuote,
 } from "@/lib/use-binance-live";
 import { prefetchBinanceKlines } from "@/lib/binance-klines-client";
+import { CoinIcon } from "./CoinIcon";
 import { PriceChange } from "./PriceChange";
 import { LiveStatus } from "./LiveStatus";
 
@@ -94,13 +94,11 @@ export function MarketTable({
                       onMouseEnter={() => prefetchBinanceKlines(coin.symbol, "7d")}
                       onFocus={() => prefetchBinanceKlines(coin.symbol, "7d")}
                     >
-                      <Image
-                        src={coin.image}
-                        alt=""
-                        width={28}
-                        height={28}
-                        className="h-7 w-7 rounded-full"
-                        unoptimized
+                      <CoinIcon
+                        symbol={coin.symbol}
+                        image={coin.image}
+                        name={coin.name}
+                        size={28}
                       />
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-body group-hover:text-primary">

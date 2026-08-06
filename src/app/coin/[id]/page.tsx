@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowSquareOut } from "@phosphor-icons/react/dist/ssr";
@@ -9,6 +8,7 @@ import { PriceChange } from "@/components/PriceChange";
 import { UpdatedBadge } from "@/components/UpdatedBadge";
 import { WatchButton } from "@/components/WatchButton";
 import { BlogCard } from "@/components/BlogCard";
+import { CoinIcon } from "@/components/CoinIcon";
 import { fetchCoinDetail, getPriceBundle, loadChartData } from "@/lib/coin-detail";
 import { getAllPosts } from "@/lib/news";
 import { fetchUsdVndRate } from "@/lib/rates";
@@ -96,16 +96,12 @@ export default async function CoinPage({ params }: Props) {
 
       <header className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-start gap-4">
-          {coin.image && (
-            <Image
-              src={coin.image}
-              alt=""
-              width={56}
-              height={56}
-              className="h-14 w-14 rounded-full"
-              unoptimized
-            />
-          )}
+          <CoinIcon
+            symbol={coin.symbol}
+            image={coin.image}
+            name={coin.name}
+            size={56}
+          />
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-semibold tracking-tight text-body md:text-3xl">

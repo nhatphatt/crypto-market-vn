@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "coin-images.coingecko.com" },
       { protocol: "https", hostname: "assets.coingecko.com" },
+      { protocol: "https", hostname: "assets.coincap.io" },
+      { protocol: "https", hostname: "cdn.jsdelivr.net" },
       { protocol: "https", hostname: "**.coindesk.com" },
       { protocol: "https", hostname: "**.cointelegraph.com" },
       { protocol: "https", hostname: "images.unsplash.com" },

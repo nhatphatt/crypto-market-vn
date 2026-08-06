@@ -126,9 +126,9 @@ const SYM_TO_ID: Record<string, string> = {
 };
 
 function iconFor(sym: string): string {
-  const s = sym.toLowerCase();
-  // CDN icon ổn định, không phụ thuộc CoinGecko
-  return `https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/${s}.svg`;
+  const s = sym.toLowerCase().replace(/[^a-z0-9]/g, "");
+  // CoinCap – cover coin mới tốt hơn cryptocurrency-icons
+  return `https://assets.coincap.io/assets/icons/${s}@2x.png`;
 }
 
 /** Cặp USDT phổ biến – tránh GET /ticker/24hr full (~2.5MB, Next không cache được) */

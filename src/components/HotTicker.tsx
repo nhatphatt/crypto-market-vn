@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { CoinMarket } from "@/lib/types";
 import type { LiveQuote } from "@/lib/use-binance-live";
 import { formatUsd } from "@/lib/format";
+import { CoinIcon } from "./CoinIcon";
 import { PriceChange } from "./PriceChange";
 import { DragScroll } from "./DragScroll";
 
@@ -48,14 +48,12 @@ export function HotTicker({
                   : "hover:bg-surface-elevated/60",
             ].join(" ")}
           >
-            <Image
-              src={coin.image}
-              alt=""
-              width={28}
-              height={28}
-              className="pointer-events-none h-7 w-7 rounded-full"
-              unoptimized
-              draggable={false}
+            <CoinIcon
+              symbol={coin.symbol}
+              image={coin.image}
+              name={coin.name}
+              size={28}
+              className="pointer-events-none"
             />
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase text-body">

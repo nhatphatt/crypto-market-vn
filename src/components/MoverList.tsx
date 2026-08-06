@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import type { CoinMarket } from "@/lib/types";
 import { formatUsd } from "@/lib/format";
@@ -9,6 +8,7 @@ import {
   mergeLivePrice,
   type LiveQuote,
 } from "@/lib/use-binance-live";
+import { CoinIcon } from "./CoinIcon";
 import { PriceChange } from "./PriceChange";
 
 export function MoverList({
@@ -48,13 +48,11 @@ export function MoverList({
                       : "hover:bg-surface-elevated/50",
                 ].join(" ")}
               >
-                <Image
-                  src={coin.image}
-                  alt=""
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 rounded-full"
-                  unoptimized
+                <CoinIcon
+                  symbol={coin.symbol}
+                  image={coin.image}
+                  name={coin.name}
+                  size={32}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-body">

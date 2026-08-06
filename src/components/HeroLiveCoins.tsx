@@ -1,16 +1,18 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
 import type { CoinMarket } from "@/lib/types";
 import { useBinanceLive } from "@/lib/use-binance-live";
+import { useMarketCoins } from "@/lib/use-market-coins";
 import { formatUsd } from "@/lib/format";
 import { prefetchBinanceKlines } from "@/lib/binance-klines-client";
+import { CoinIcon } from "./CoinIcon";
 import { PriceChange } from "./PriceChange";
 
 /** Lấp hero bằng coin thật (logo + giá live) – không card marketing trống */
-export function HeroLiveCoins({ coins }: { coins: CoinMarket[] }) {
+export function HeroLiveCoins({ coins: initial }: { coins: CoinMarket[] }) {
+  const { coins, loading } = useMarketCoins(initial, 12);
   const top = useMemo(() => coins.slice(0, 6), [coins]);
   const symbols = useMemo(() => top.map((c) => c.symbol), [top]);
   const { quotes } = useBinanceLive(symbols);
@@ -18,7 +20,7 @@ export function HeroLiveCoins({ coins }: { coins: CoinMarket[] }) {
   if (top.length === 0) {
     return (
       <div className="grid h-full min-h-[200px] place-items-center rounded-xl bg-surface-elevated/40 text-sm text-muted">
-        Đang tải giá…
+        {loading ? "Đang tải giá…" : "Chưa có dữ liệu giá"}
       </div>
     );
   }
@@ -51,13 +53,11 @@ export function HeroLiveCoins({ coins }: { coins: CoinMarket[] }) {
             ].join(" ")}
           >
             <div className="flex items-center gap-2.5">
-              <Image
-                src={coin.image}
-                alt=""
-                width={28}
-                height={28}
-                className="h-7 w-7 rounded-full"
-                unoptimized
+              <CoinIcon
+                symbol={coin.symbol}
+                image={coin.image}
+                name={coin.name}
+                size={28}
               />
               <span className="truncate text-sm font-semibold uppercase text-body">
                 {coin.symbol}

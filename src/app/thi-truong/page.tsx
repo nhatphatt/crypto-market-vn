@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { UpdatedBadge } from "@/components/UpdatedBadge";
 import { MarketWorkspace } from "@/components/MarketWorkspace";
-import { MarketOverviewBand } from "@/components/MarketOverviewBand";
+import { MarketOverviewLive } from "@/components/MarketOverviewLive";
 import { fetchFearGreed } from "@/lib/fear-greed";
 import {
   enrichGlobalStats,
@@ -41,7 +41,7 @@ export default async function MarketPage() {
         <UpdatedBadge iso={overviewUpdated} label="Cập nhật" compact />
       </header>
 
-      <MarketOverviewBand global={global} fear={fear} />
+      <MarketOverviewLive global={global} fear={fear} />
       <MarketWorkspace coins={coins} />
     </div>
   );

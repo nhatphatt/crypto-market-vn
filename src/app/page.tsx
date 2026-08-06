@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
-import { MarketOverviewBand } from "@/components/MarketOverviewBand";
+import { MarketOverviewLive } from "@/components/MarketOverviewLive";
 import { BlogCard } from "@/components/BlogCard";
 import { UpdatedBadge } from "@/components/UpdatedBadge";
 import { HomeMarkets } from "@/components/HomeMarkets";
@@ -71,8 +71,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Metrics – sát hero, không title dư + divider */}
-      <MarketOverviewBand global={global} fear={fear} />
+      {/* Metrics – client hydrate nếu SSR thiếu (static Pages) */}
+      <MarketOverviewLive global={global} fear={fear} />
 
       {/* Bảng giá / movers */}
       <HomeMarkets coins={coins} />
