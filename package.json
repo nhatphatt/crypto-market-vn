@@ -9,6 +9,7 @@
     "lint": "eslint",
     "scrape": "node scripts/scrape-news.mjs",
     "snapshot": "node scripts/fetch-markets-snapshot.mjs",
+    "charts": "node scripts/fetch-charts-snapshot.mjs",
     "prebuild": "node -e \"const fs=require('fs');const p='data';if(!fs.existsSync(p))fs.mkdirSync(p,{recursive:true});if(!fs.existsSync(p+'/news.json'))fs.writeFileSync(p+'/news.json',JSON.stringify({updatedAt:new Date(0).toISOString(),posts:[],sources:[]},null,2));\"",
     "pages:deploy": "next build && wrangler pages deploy out --project-name=crypto-market-vn --commit-dirty=true",
     "deploy": "npm run pages:deploy"

@@ -324,31 +324,153 @@ export async function fetchCoinGeckoMarketChartClient(
   }
 }
 
+type ChartClientSource =
+  | "binance"
+  | "coingecko-ohlc"
+  | "coingecko"
+  | "static"
+  | "synthetic"
+  | "none";
+
+/** Same-origin bake — không CORS, không rate-limit API ngoài */
+async function fetchStaticChart(
+  coinId: string,
+  range: ChartRange,
+): Promise<{ candles: Candle[]; pair: string | null; source: ChartClientSource } | null> {
+  if (!coinId || typeof window === "undefined") return null;
+  try {
+    const res = await fetch(`/charts/${encodeURIComponent(coinId)}.json`, {
+      cache: "force-cache",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      pair?: string | null;
+      source?: string;
+      ranges?: Partial<Record<ChartRange, Candle[]>>;
+    };
+    const candles =
+      data.ranges?.[range] ||
+      data.ranges?.["7d"] ||
+      data.ranges?.["30d"] ||
+      [];
+    if (!Array.isArray(candles) || candles.length < 3) return null;
+    const src = (data.source || "static") as ChartClientSource;
+    return {
+      candles: normalizeCandles(candles),
+      pair: data.pair ?? null,
+      source: src === "none" ? "static" : src,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function syntheticCandlesClient(
+  price: number,
+  range: ChartRange,
+): Candle[] {
+  const p0 = Number(price);
+  if (!Number.isFinite(p0) || p0 <= 0) return [];
+  const cfg =
+    range === "1d"
+      ? { points: 96, sec: 15 * 60 }
+      : range === "7d"
+        ? { points: 168, sec: 3600 }
+        : range === "30d"
+          ? { points: 180, sec: 4 * 3600 }
+          : { points: 90, sec: 86400 };
+  const now = Math.floor(Date.now() / 1000);
+  let p = p0;
+  const out: Candle[] = [];
+  for (let i = cfg.points; i >= 0; i--) {
+    const t = now - i * cfg.sec;
+    const seed = (t / cfg.sec) % 97;
+    const wobble =
+      Math.sin(seed) * p0 * 0.0015 + Math.cos(seed * 0.7) * p0 * 0.0008;
+    const open = p;
+    const close = Math.max(
+      p0 * 1e-12,
+      p0 + wobble * (i / Math.max(1, cfg.points)),
+    );
+    out.push({
+      time: t,
+      open,
+      high: Math.max(open, close) * 1.0004,
+      low: Math.min(open, close) * 0.9996,
+      close,
+      volume: 0,
+    });
+    p = close;
+  }
+  if (out.length) {
+    const last = out[out.length - 1];
+    last.close = p0;
+    last.high = Math.max(last.open, last.close, last.high);
+    last.low = Math.min(last.open, last.close, last.low);
+  }
+  return normalizeCandles(out);
+}
+
 /**
- * Chart client: Binance → CoinGecko OHLC → market_chart.
+ * Chart client:
+ * 1) static same-origin bake  2) Binance  3) CoinGecko  4) synthetic(price)
  */
 export async function fetchChartCandlesClient(
   coinId: string,
   symbol: string,
   range: ChartRange = "7d",
+  fallbackPrice?: number,
 ): Promise<{
   candles: Candle[];
   pair: string | null;
-  source: "binance" | "coingecko-ohlc" | "coingecko" | "none";
+  source: ChartClientSource;
 }> {
-  const bn = await fetchBinanceKlinesFast(symbol, range, 8000);
+  // Static bake trước — đảm bảo luôn có data cho coin trong snapshot
+  const baked = await fetchStaticChart(coinId, range);
+
+  // Binance song song với static (tươi hơn nếu có pair)
+  const bnPromise = fetchBinanceKlinesFast(symbol, range, 6000);
+
+  const bn = await bnPromise;
   if (bn.candles.length >= 3) {
     return { candles: bn.candles, pair: bn.pair, source: "binance" };
   }
 
+  if (baked && baked.candles.length >= 3) {
+    return baked;
+  }
+
   if (coinId) {
-    const ohlc = await fetchCoinGeckoOhlcClient(coinId, range, 9000);
-    if (ohlc.length >= 3) {
-      return { candles: ohlc, pair: bn.pair, source: "coingecko-ohlc" };
+    // Race CG OHLC + market_chart (không chờ tuần tự)
+    try {
+      const winner = await Promise.any([
+        fetchCoinGeckoOhlcClient(coinId, range, 7000).then((c) => {
+          if (c.length < 3) throw new Error("empty");
+          return {
+            candles: c,
+            pair: bn.pair,
+            source: "coingecko-ohlc" as const,
+          };
+        }),
+        fetchCoinGeckoMarketChartClient(coinId, range, 7000).then((c) => {
+          if (c.length < 3) throw new Error("empty");
+          return {
+            candles: c,
+            pair: bn.pair,
+            source: "coingecko" as const,
+          };
+        }),
+      ]);
+      return winner;
+    } catch {
+      /* */
     }
-    const mc = await fetchCoinGeckoMarketChartClient(coinId, range, 9000);
-    if (mc.length >= 3) {
-      return { candles: mc, pair: bn.pair, source: "coingecko" };
+  }
+
+  if (fallbackPrice && fallbackPrice > 0) {
+    const synth = syntheticCandlesClient(fallbackPrice, range);
+    if (synth.length >= 3) {
+      return { candles: synth, pair: bn.pair, source: "synthetic" };
     }
   }
 

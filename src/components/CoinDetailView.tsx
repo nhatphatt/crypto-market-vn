@@ -218,6 +218,7 @@ export function CoinDetailView({
           symbol={coin.symbol}
           initialCandles={candles}
           initialSource={chartSource}
+          fallbackPrice={price > 0 ? price : undefined}
         />
       </section>
 

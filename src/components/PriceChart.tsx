@@ -54,6 +54,8 @@ function toSeriesData(candles: Candle[]): CandlestickData<Time>[] {
 function sourceLabel(source: string, pair: string | null) {
   if (source === "binance" && pair) return pair;
   if (source === "coingecko-ohlc" || source === "coingecko") return "Lịch sử";
+  if (source === "static") return "Snapshot";
+  if (source === "synthetic") return "Ước lượng";
   return "";
 }
 
@@ -62,11 +64,14 @@ export function PriceChart({
   symbol,
   initialCandles,
   initialSource,
+  fallbackPrice,
 }: {
   coinId: string;
   symbol: string;
   initialCandles: Candle[];
   initialSource: string;
+  /** Giá hiện tại — synthetic fallback khi API fail */
+  fallbackPrice?: number;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -223,14 +228,26 @@ export function PriceChart({
       const hadData = (pendingRef.current?.length ?? 0) >= 2;
       if (!opts?.soft || !hadData) setLoading(true);
 
-      let result = await fetchChartCandlesClient(coinId, symbol, next);
+      const priceHint =
+        fallbackPrice && fallbackPrice > 0 ? fallbackPrice : undefined;
+
+      let result = await fetchChartCandlesClient(
+        coinId,
+        symbol,
+        next,
+        priceHint,
+      );
       if (gen !== loadGen.current) return;
 
       if (result.candles.length < 2) {
-        // retry một lần (CG 429 / mạng chập chờn)
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 300));
         if (gen !== loadGen.current) return;
-        result = await fetchChartCandlesClient(coinId, symbol, next);
+        result = await fetchChartCandlesClient(
+          coinId,
+          symbol,
+          next,
+          priceHint,
+        );
         if (gen !== loadGen.current) return;
       }
 
@@ -256,7 +273,7 @@ export function PriceChart({
       }
       if (gen === loadGen.current) setLoading(false);
     },
-    [applyCandles, coinId, symbol],
+    [applyCandles, coinId, fallbackPrice, symbol],
   );
 
   // Mount: paint SSR ngay; client luôn cố lấy data tươi + fallback

@@ -17,7 +17,13 @@ const BINANCE_HOSTS = [
 ] as const;
 
 export type ChartRange = "1d" | "7d" | "30d" | "90d";
-export type ChartSource = "binance" | "coingecko-ohlc" | "coingecko" | "none";
+export type ChartSource =
+  | "binance"
+  | "coingecko-ohlc"
+  | "coingecko"
+  | "static"
+  | "synthetic"
+  | "none";
 
 export type ChartResult = {
   candles: Candle[];
@@ -25,6 +31,80 @@ export type ChartResult = {
   pair: string | null;
   error?: string;
   ms?: number;
+};
+
+type ChartsFile = {
+  updatedAt?: string;
+  charts?: Record<
+    string,
+    {
+      pair?: string | null;
+      source?: string;
+      ranges?: Partial<Record<ChartRange, Candle[]>>;
+    }
+  >;
+};
+
+let chartsSnap: ChartsFile | null | undefined;
+
+async function loadChartsSnapshotFile(): Promise<ChartsFile | null> {
+  if (chartsSnap !== undefined) return chartsSnap;
+  try {
+    const mod = await import("../../data/charts-snapshot.json");
+    const raw = (mod as { default?: ChartsFile } & ChartsFile).default ?? mod;
+    chartsSnap = raw as ChartsFile;
+    return chartsSnap;
+  } catch {
+    try {
+      const { readFile } = await import("fs/promises");
+      const path = await import("path");
+      const file = path.join(process.cwd(), "data", "charts-snapshot.json");
+      const raw = JSON.parse(await readFile(file, "utf8")) as ChartsFile;
+      chartsSnap = raw;
+      return chartsSnap;
+    } catch {
+      chartsSnap = null;
+      return null;
+    }
+  }
+}
+
+function syntheticCandles(
+  price: number,
+  points: number,
+  intervalSec: number,
+): Candle[] {
+  const p0 = Number(price);
+  if (!Number.isFinite(p0) || p0 <= 0) return [];
+  const now = Math.floor(Date.now() / 1000);
+  let p = p0;
+  const out: Candle[] = [];
+  for (let i = points; i >= 0; i--) {
+    const t = now - i * intervalSec;
+    const seed = (t / intervalSec) % 97;
+    const wobble =
+      Math.sin(seed) * p0 * 0.0015 + Math.cos(seed * 0.7) * p0 * 0.0008;
+    const open = p;
+    const close = Math.max(p0 * 1e-12, p0 + wobble * (i / Math.max(1, points)));
+    const high = Math.max(open, close) * 1.0004;
+    const low = Math.min(open, close) * 0.9996;
+    out.push({ time: t, open, high, low, close, volume: 0 });
+    p = close;
+  }
+  if (out.length) {
+    const last = out[out.length - 1];
+    last.close = p0;
+    last.high = Math.max(last.open, last.close, last.high);
+    last.low = Math.min(last.open, last.close, last.low);
+  }
+  return normalizeCandles(out);
+}
+
+const SYNTH_CFG: Record<ChartRange, { points: number; sec: number }> = {
+  "1d": { points: 96, sec: 15 * 60 },
+  "7d": { points: 168, sec: 3600 },
+  "30d": { points: 180, sec: 4 * 3600 },
+  "90d": { points: 90, sec: 86400 },
 };
 
 const RANGE_BINANCE = {
@@ -241,10 +321,27 @@ async function loadChartDataUncached(
   coinId: string,
   symbol: string,
   range: ChartRange,
+  fallbackPrice?: number,
 ): Promise<ChartResult> {
   const t0 = Date.now();
   const cfg = RANGE_BINANCE[range];
   const days = RANGE_CG_DAYS[range];
+
+  // 0) Snapshot bake (luôn có cho top markets — không phụ thuộc rate-limit runtime)
+  if (coinId) {
+    const file = await loadChartsSnapshotFile();
+    const entry = file?.charts?.[coinId];
+    const baked = entry?.ranges?.[range] || entry?.ranges?.["7d"];
+    if (baked && baked.length >= 3) {
+      const src = (entry?.source || "static") as ChartSource;
+      return {
+        candles: downsample(normalizeCandles(baked)),
+        source: src === "none" ? "static" : src,
+        pair: entry?.pair ?? null,
+        ms: Date.now() - t0,
+      };
+    }
+  }
 
   // 1) Binance race song song (host × alias)
   const bn = await binanceKlinesServer(symbol, cfg.interval, cfg.limit);
@@ -257,7 +354,7 @@ async function loadChartDataUncached(
     };
   }
 
-  // 2) CoinGecko: OHLC + market_chart song song, lấy cái về trước có data
+  // 2) CoinGecko: OHLC + market_chart song song
   if (coinId) {
     try {
       const winner = await Promise.any([
@@ -281,6 +378,21 @@ async function loadChartDataUncached(
     }
   }
 
+  // 3) Synthetic quanh giá — chart không bao giờ trống nếu có giá
+  const price = fallbackPrice && fallbackPrice > 0 ? fallbackPrice : 0;
+  if (price > 0) {
+    const sc = SYNTH_CFG[range];
+    const candles = syntheticCandles(price, sc.points, sc.sec);
+    if (candles.length >= 3) {
+      return {
+        candles,
+        source: "synthetic",
+        pair: bn.pair,
+        ms: Date.now() - t0,
+      };
+    }
+  }
+
   return {
     candles: [],
     source: "none",
@@ -294,8 +406,9 @@ export async function loadChartData(
   coinId: string,
   symbol: string,
   range: ChartRange = "7d",
+  fallbackPrice?: number,
 ): Promise<ChartResult> {
-  const cacheKey = `${coinId}|${symbol}|${range}`;
+  const cacheKey = `${coinId}|${symbol}|${range}|${fallbackPrice ?? 0}`;
   const cache = getCache();
   const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < CACHE_TTL && hit.result.candles.length >= 3) {
@@ -306,7 +419,7 @@ export async function loadChartData(
   const pending = inflight.get(cacheKey);
   if (pending) return pending;
 
-  const promise = loadChartDataUncached(coinId, symbol, range)
+  const promise = loadChartDataUncached(coinId, symbol, range, fallbackPrice)
     .then((result) => {
       if (result.candles.length >= 3) {
         cache.set(cacheKey, { at: Date.now(), result });

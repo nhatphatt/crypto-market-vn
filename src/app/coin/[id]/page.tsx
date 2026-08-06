@@ -72,7 +72,7 @@ export default async function CoinPage({ params }: Props) {
   if (!coin) notFound();
 
   const [chart, binance] = await Promise.all([
-    loadChartData(coin.id, coin.symbol, "7d"),
+    loadChartData(coin.id, coin.symbol, "7d", coin.current_price || undefined),
     getPriceBundle(coin.symbol),
   ]);
 
