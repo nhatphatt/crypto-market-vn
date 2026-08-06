@@ -10,12 +10,31 @@ type Props = { params: Promise<{ id: string }> };
 
 export const dynamicParams = false;
 
+/** Build đủ mọi coin trong snapshot (market list link tới 100+ id — trước chỉ 80 → 404). */
 export async function generateStaticParams() {
+  const ids = new Set<string>();
   try {
-    const { getTopCoins } = await import("@/lib/server-data");
-    const coins = await getTopCoins(80);
-    return coins.map((c) => ({ id: c.id }));
+    const { loadMarketsSnapshot } = await import("@/lib/snapshot");
+    const snap = await loadMarketsSnapshot();
+    for (const m of snap?.markets || []) {
+      if (m?.id) ids.add(m.id);
+    }
+    for (const id of Object.keys(snap?.details || {})) {
+      if (id) ids.add(id);
+    }
   } catch {
+    /* fallback below */
+  }
+  if (ids.size === 0) {
+    try {
+      const { getTopCoins } = await import("@/lib/server-data");
+      const coins = await getTopCoins(120);
+      for (const c of coins) ids.add(c.id);
+    } catch {
+      /* */
+    }
+  }
+  if (ids.size === 0) {
     return [
       { id: "bitcoin" },
       { id: "ethereum" },
@@ -24,8 +43,13 @@ export async function generateStaticParams() {
       { id: "ripple" },
       { id: "dogecoin" },
       { id: "cardano" },
+      { id: "aptos" },
+      { id: "arbitrum" },
+      { id: "cosmos" },
+      { id: "filecoin" },
     ];
   }
+  return [...ids].map((id) => ({ id }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

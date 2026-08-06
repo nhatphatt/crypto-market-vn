@@ -11,8 +11,9 @@ import {
 
 const COINGECKO = "https://api.coingecko.com/api/v3";
 const BINANCE_HOSTS = [
-  "https://api.binance.com",
   "https://data-api.binance.vision",
+  "https://api.binance.com",
+  "https://api1.binance.com",
 ] as const;
 
 export type ChartRange = "1d" | "7d" | "30d" | "90d";
@@ -147,7 +148,7 @@ async function binanceKlinesServer(
       pairs.flatMap((pair) =>
         BINANCE_HOSTS.map(async (host) => {
           const url = `${host}/api/v3/klines?symbol=${pair}&interval=${interval}&limit=${limit}`;
-          const r = await fetchJson(url, 2200);
+          const r = await fetchJson(url, 5000);
           if (!r.ok || !Array.isArray(r.data)) throw new Error("fail");
           const rows = r.data as Array<unknown[]>;
           const parsed = normalizeCandles(
@@ -179,7 +180,7 @@ async function cgOhlcOnce(id: string, days: number): Promise<Candle[]> {
         Math.abs(b - days) < Math.abs(a - days) ? b : a,
       );
   const url = `${COINGECKO}/coins/${encodeURIComponent(id)}/ohlc?vs_currency=usd&days=${d}`;
-  const r = await fetchJson(url, 2000);
+  const r = await fetchJson(url, 6000);
   if (!r.ok || !Array.isArray(r.data)) return [];
   const rows = r.data as number[][];
   return normalizeCandles(
@@ -203,7 +204,7 @@ export async function fetchCoinGeckoMarketChart(
   days: number,
 ): Promise<Candle[]> {
   const url = `${COINGECKO}/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=${days}`;
-  const r = await fetchJson(url, 2000);
+  const r = await fetchJson(url, 6000);
   if (!r.ok || !r.data || typeof r.data !== "object") return [];
   const prices = (r.data as { prices?: [number, number][] }).prices || [];
   if (prices.length < 2) return [];

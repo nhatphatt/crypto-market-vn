@@ -40,7 +40,7 @@ export function HeroLiveCoins({ coins: initial }: { coins: CoinMarket[] }) {
         return (
           <Link
             key={coin.id}
-            href={`/coin/${coin.id}`}
+            href={`/coin/${coin.id}/`}
             onMouseEnter={() => prefetchBinanceKlines(coin.symbol, "7d")}
             onFocus={() => prefetchBinanceKlines(coin.symbol, "7d")}
             className={[

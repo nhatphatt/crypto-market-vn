@@ -18,7 +18,7 @@ export function BlogCard({ post }: { post: NewsPost }) {
   return (
     <article className="h-full">
       <Link
-        href={`/tin-tuc/${post.slug}`}
+        href={`/tin-tuc/${post.slug}/`}
         className="group flex h-full flex-col overflow-hidden rounded-xl border border-hairline bg-surface-card transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:-translate-y-0.5 hover:border-primary/25"
       >
         <div className="relative aspect-[16/9] overflow-hidden bg-surface-elevated">

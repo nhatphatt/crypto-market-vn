@@ -37,7 +37,7 @@ export function HotTicker({
         return (
           <Link
             key={coin.id}
-            href={`/coin/${coin.id}`}
+            href={`/coin/${coin.id}/`}
             draggable={false}
             className={[
               "flex min-w-[140px] shrink-0 cursor-pointer select-none items-center gap-2.5 rounded-lg px-3 py-2.5 transition-colors duration-300",

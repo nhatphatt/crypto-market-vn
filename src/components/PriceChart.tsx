@@ -14,6 +14,7 @@ import type { Candle } from "@/lib/binance";
 import { toBinanceSymbol } from "@/lib/binance";
 import {
   fetchBinanceKlinesFast,
+  fetchChartCandlesClient,
   peekChartCache,
 } from "@/lib/binance-klines-client";
 import {
@@ -195,15 +196,15 @@ export function PriceChart({
   }, []);
 
   /**
-   * Static Pages: chỉ Binance từ browser (CORS *).
-   * 1) cache tab  2) race multi-host  3) retry
+   * Static Pages: Binance (browser) → CoinGecko fallback.
+   * Soft: không xóa nến SSR / không báo lỗi mạng nếu đã có data.
    */
   const loadRange = useCallback(
     async (next: ChartRange, opts?: { soft?: boolean }) => {
       const gen = ++loadGen.current;
       setRange(next);
       setLive(false);
-      setLoadError(null);
+      if (!opts?.soft) setLoadError(null);
 
       const cached = peekChartCache(symbol, next);
       if (cached && cached.length >= 2) {
@@ -211,52 +212,63 @@ export function PriceChart({
         setPairLabel(toBinanceSymbol(symbol));
         applyCandles(cached, true);
         setLoading(false);
-        void fetchBinanceKlinesFast(symbol, next, 2500).then((bn) => {
+        setLoadError(null);
+        void fetchBinanceKlinesFast(symbol, next, 8000).then((bn) => {
           if (gen !== loadGen.current) return;
           if (bn.candles.length >= 2) applyCandles(bn.candles, false);
         });
         return;
       }
 
-      if (!opts?.soft) setLoading(true);
+      const hadData = (pendingRef.current?.length ?? 0) >= 2;
+      if (!opts?.soft || !hadData) setLoading(true);
 
-      let bn = await fetchBinanceKlinesFast(symbol, next, 3200);
+      let result = await fetchChartCandlesClient(coinId, symbol, next);
       if (gen !== loadGen.current) return;
 
-      if (bn.candles.length < 2) {
-        bn = await fetchBinanceKlinesFast(symbol, next, 2500);
+      if (result.candles.length < 2) {
+        // retry một lần (CG 429 / mạng chập chờn)
+        await new Promise((r) => setTimeout(r, 400));
+        if (gen !== loadGen.current) return;
+        result = await fetchChartCandlesClient(coinId, symbol, next);
         if (gen !== loadGen.current) return;
       }
 
-      if (bn.candles.length >= 2) {
-        setSource("binance");
-        setPairLabel(bn.pair);
-        applyCandles(bn.candles, true);
+      if (result.candles.length >= 2) {
+        setSource(result.source);
+        setPairLabel(result.pair);
+        applyCandles(result.candles, true);
+        setLoading(false);
+        setLoadError(null);
+        return;
+      }
+
+      // Soft fail: giữ nến cũ, không báo “mạng hỏng” oan
+      if (opts?.soft && hadData) {
         setLoading(false);
         return;
       }
 
-      setLoadError("Không tải được biểu đồ. Kiểm tra mạng rồi thử lại.");
+      if ((pendingRef.current?.length ?? 0) < 2) {
+        setLoadError(
+          "Chưa tải được biểu đồ cho coin này. Thử lại sau vài giây (Binance/CoinGecko có thể đang giới hạn).",
+        );
+      }
       if (gen === loadGen.current) setLoading(false);
     },
-    [applyCandles, symbol],
+    [applyCandles, coinId, symbol],
   );
 
-  // Mount: paint SSR ngay; refresh nếu thiếu / non-binance
+  // Mount: paint SSR ngay; client luôn cố lấy data tươi + fallback
   useEffect(() => {
     if (initialCandles.length >= 2) {
       applyCandles(initialCandles, true);
       setLoading(false);
-      if (initialSource === "binance") {
-        // Soft refresh cache nền – không chặn UI
-        void fetchBinanceKlinesFast(symbol, "7d", 2500);
-        return;
-      }
-      // SSR từ CG – vẫn race client Binance để realtime pair
+      setLoadError(null);
+      // Soft refresh: Binance realtime nếu được; fail thì giữ SSR
       void loadRange("7d", { soft: true });
       return;
     }
-    // SSR trống → load ngay
     void loadRange("7d");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [coinId, symbol]);

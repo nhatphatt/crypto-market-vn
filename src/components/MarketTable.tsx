@@ -89,7 +89,7 @@ export function MarketTable({
                   </td>
                   <td className="px-2 py-3">
                     <Link
-                      href={`/coin/${coin.id}`}
+                      href={`/coin/${coin.id}/`}
                       className="group flex items-center gap-2.5"
                       onMouseEnter={() => prefetchBinanceKlines(coin.symbol, "7d")}
                       onFocus={() => prefetchBinanceKlines(coin.symbol, "7d")}

@@ -38,7 +38,7 @@ export function MoverList({
           return (
             <li key={coin.id}>
               <Link
-                href={`/coin/${coin.id}`}
+                href={`/coin/${coin.id}/`}
                 className={[
                   "flex items-center gap-3 rounded-md px-1 py-1.5 transition-colors duration-300 -mx-1",
                   flash === "up"
