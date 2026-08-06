@@ -327,27 +327,20 @@ export async function fetchTopCoins(limit = 50): Promise<CoinMarket[]> {
     return cached.data.slice(0, limit);
   }
 
-  // 2) CoinGecko (retry)
+  // 2) Live CoinGecko
   const cg = await fetchTopCoinsFromCoinGecko(limit);
   if (cg && cg.length > 0) {
     g.__cmvnMarketsCache = { at: Date.now(), data: cg };
     return cg.slice(0, limit);
   }
 
-  // 3) Fallback Binance – tránh bảng trống khi 429
-  if (process.env.NODE_ENV === "development") {
-    console.warn(
-      "[markets] CoinGecko rate limit/unavailable → fallback Binance 24h ticker",
-    );
-  }
+  // 3) Binance ticker
   const bn = await fetchTopCoinsFromBinance(limit);
   if (bn.length > 0) {
-    // cache ngắn hơn vì thiếu market_cap
     g.__cmvnMarketsCache = { at: Date.now(), data: bn };
     return bn;
   }
 
-  // 4) stale cache nếu còn
   if (cached?.data?.length) return cached.data.slice(0, limit);
   return [];
 }

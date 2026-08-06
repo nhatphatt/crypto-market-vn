@@ -260,19 +260,11 @@ export function mergeCoinDetail(
   cg: CoinDetail | null,
   bn: Awaited<ReturnType<typeof fetchBinancePeriodChanges>>,
 ): CoinDetail {
-  const src = cg && cg.market_cap > 0 ? cg : base;
-  const isFallbackDesc =
-    !src.descriptionVi ||
-    src.descriptionVi.includes("tạm thời không tải") ||
-    src.descriptionVi.includes("CoinGecko");
+  const src = cg && (cg.market_cap > 0 || cg.descriptionVi) ? cg : base;
 
   return {
     ...src,
-    descriptionVi: isFallbackDesc
-      ? cg?.descriptionVi && !cg.descriptionVi.includes("tạm thời")
-        ? cg.descriptionVi
-        : ""
-      : src.descriptionVi,
+    descriptionVi: cg?.descriptionVi || src.descriptionVi || "",
     image: cg?.image || src.image,
     current_price: bn.last && bn.last > 0 ? bn.last : src.current_price,
     price_change_percentage_24h:

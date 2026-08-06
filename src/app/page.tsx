@@ -5,39 +5,28 @@ import { BlogCard } from "@/components/BlogCard";
 import { UpdatedBadge } from "@/components/UpdatedBadge";
 import { HomeMarkets } from "@/components/HomeMarkets";
 import { HeroLiveCoins } from "@/components/HeroLiveCoins";
-import { fetchFearGreed } from "@/lib/fear-greed";
 import {
-  enrichGlobalStats,
-  fetchGlobalMarket,
-  fetchTopCoins,
-} from "@/lib/markets";
+  getFearGreed,
+  getGlobalMarket,
+  getTopCoins,
+} from "@/lib/server-data";
 import { getLatestPosts, getNewsMeta } from "@/lib/news";
 
-
-
 /**
- * Design read: crypto market dashboard cho trader VN.
- * VARIANCE 5 · MOTION 3 · DENSITY 7 (cockpit, không gallery).
- * Hero = split text + coin live (lấp trống). Không border-t cắt section.
+ * Home — data từ snapshot (build) + client live giá/chart.
  */
 export default async function HomePage() {
-  const [coins, globalRaw, fear, posts, newsMeta] = await Promise.all([
-    fetchTopCoins(30),
-    fetchGlobalMarket(),
-    fetchFearGreed(),
+  const [coins, fear, posts, newsMeta] = await Promise.all([
+    getTopCoins(30),
+    getFearGreed(),
     getLatestPosts(6),
     getNewsMeta(),
   ]);
-
-  const global = enrichGlobalStats(globalRaw, coins);
+  const global = await getGlobalMarket(coins);
   const updatedAt = global?.updated_at || new Date().toISOString();
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:space-y-7 md:px-6 md:py-8">
-      {/*
-        Hero split: trái copy/CTA, phải 6 coin live (visual density).
-        Không card marketing chỉ chữ + gradient.
-      */}
       <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-10">
         <div className="flex max-w-xl flex-col justify-center py-1 md:py-2">
           <h1 className="text-[1.75rem] font-semibold leading-[1.18] tracking-tight text-body sm:text-4xl sm:leading-[1.12] md:text-[2.65rem] md:leading-[1.1]">
@@ -71,13 +60,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Metrics – client hydrate nếu SSR thiếu (static Pages) */}
       <MarketOverviewLive global={global} fear={fear} />
-
-      {/* Bảng giá / movers */}
       <HomeMarkets coins={coins} />
 
-      {/* Tin – chỉ gap, không border-t full page */}
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold text-body md:text-lg">

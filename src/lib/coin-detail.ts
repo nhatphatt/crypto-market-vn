@@ -17,7 +17,7 @@ export type CoinDetail = {
   name: string;
   image: string;
   descriptionVi: string;
-  homepage?: string;
+  homepage?: string | null;
   categories: string[];
   market_cap_rank: number | null;
   current_price: number;
@@ -126,7 +126,6 @@ export async function fetchCoinDetail(id: string): Promise<CoinDetail | null> {
       next: { revalidate: 60 },
     });
     if (!res.ok) {
-      // CF / rate-limit: vẫn mở trang bằng Binance
       const known = ID_SYMBOL[id.toLowerCase()];
       const sym = known?.symbol || id;
       const t = await fetchBinanceTicker(sym);

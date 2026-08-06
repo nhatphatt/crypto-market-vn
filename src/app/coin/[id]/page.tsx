@@ -1,24 +1,20 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CoinDetailView } from "@/components/CoinDetailView";
-import {
-  fetchCoinDetail,
-  getPriceBundle,
-  loadChartData,
-} from "@/lib/coin-detail";
+import { getPriceBundle, loadChartData } from "@/lib/coin-detail";
+import { getCoinDetail } from "@/lib/server-data";
 import { getAllPosts } from "@/lib/news";
 import { fetchUsdVndRate } from "@/lib/rates";
 
 type Props = { params: Promise<{ id: string }> };
 
-/** Static export (Cloudflare Pages): prebuild top coin */
 export const dynamicParams = false;
 
 export async function generateStaticParams() {
   try {
-    const { fetchTopCoinIds } = await import("@/lib/markets");
-    const ids = await fetchTopCoinIds(80);
-    return ids.map((id) => ({ id }));
+    const { getTopCoins } = await import("@/lib/server-data");
+    const coins = await getTopCoins(80);
+    return coins.map((c) => ({ id: c.id }));
   } catch {
     return [
       { id: "bitcoin" },
@@ -34,7 +30,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const coin = await fetchCoinDetail(id);
+  const coin = await getCoinDetail(id);
   if (!coin) return { title: "Không tìm thấy coin" };
   return {
     title: `${coin.name} (${coin.symbol.toUpperCase()})`,
@@ -45,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CoinPage({ params }: Props) {
   const { id } = await params;
   const [coin, rate, posts] = await Promise.all([
-    fetchCoinDetail(id),
+    getCoinDetail(id),
     fetchUsdVndRate(),
     getAllPosts(),
   ]);

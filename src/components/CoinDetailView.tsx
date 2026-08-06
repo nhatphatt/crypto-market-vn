@@ -77,14 +77,11 @@ export function CoinDetailView({
   const price =
     coin.current_price > 0 ? coin.current_price : initialPrice;
 
-  const desc =
-    coin.descriptionVi &&
-    !coin.descriptionVi.includes("tạm thời không tải") &&
-    !coin.descriptionVi.includes("Dữ liệu chi tiết tạm thời")
-      ? coin.descriptionVi
-      : hydrating
-        ? "Đang tải thông tin chi tiết…"
-        : `${coin.name} (${coin.symbol.toUpperCase()}) — theo dõi giá realtime trên Crypto Market VN.`;
+  const desc = coin.descriptionVi
+    ? coin.descriptionVi
+    : hydrating
+      ? "Đang tải thông tin chi tiết…"
+      : `${coin.name} (${coin.symbol.toUpperCase()}) — theo dõi giá realtime trên Crypto Market VN.`;
 
   const high = binanceHigh ?? coin.high_24h;
   const low = binanceLow ?? coin.low_24h;

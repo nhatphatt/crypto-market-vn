@@ -2,14 +2,11 @@ import type { Metadata } from "next";
 import { UpdatedBadge } from "@/components/UpdatedBadge";
 import { MarketWorkspace } from "@/components/MarketWorkspace";
 import { MarketOverviewLive } from "@/components/MarketOverviewLive";
-import { fetchFearGreed } from "@/lib/fear-greed";
 import {
-  enrichGlobalStats,
-  fetchGlobalMarket,
-  fetchTopCoins,
-} from "@/lib/markets";
-
-
+  getFearGreed,
+  getGlobalMarket,
+  getTopCoins,
+} from "@/lib/server-data";
 
 export const metadata: Metadata = {
   title: "Thị trường",
@@ -18,13 +15,11 @@ export const metadata: Metadata = {
 };
 
 export default async function MarketPage() {
-  const [coins, globalRaw, fear] = await Promise.all([
-    fetchTopCoins(100),
-    fetchGlobalMarket(),
-    fetchFearGreed(),
+  const [coins, fear] = await Promise.all([
+    getTopCoins(100),
+    getFearGreed(),
   ]);
-
-  const global = enrichGlobalStats(globalRaw, coins);
+  const global = await getGlobalMarket(coins);
   const overviewUpdated = global?.updated_at || new Date().toISOString();
 
   return (
