@@ -1,4 +1,5 @@
-# Scrape tin + build static + deploy Cloudflare Pages
+# Scrape tin + markets snapshot + build + deploy Pages
+# Giữ runtime < 45p: limit scrape/snapshot trên CI
 name: news-scrape
 
 on:
@@ -11,12 +12,12 @@ permissions:
 
 concurrency:
   group: news-scrape
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   scrape-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,18 +31,23 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Syntax-check scrape script
+      - name: Syntax-check scrape
         run: node --check scripts/scrape-news.mjs
 
-      - name: Scrape RSS
+      - name: Scrape RSS (CI limits)
+        continue-on-error: true
         run: npm run scrape
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+          SCRAPE_MAX_POSTS: "100"
+          SCRAPE_PER_FEED: "12"
 
-      - name: Markets snapshot (CG → data/markets-snapshot.json)
+      - name: Markets snapshot (CI limits)
+        continue-on-error: true
         run: npm run snapshot
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+          SNAPSHOT_DETAIL_N: "12"
 
       - name: Commit data if changed
         run: |
@@ -66,7 +72,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "Skip deploy: set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID secrets to auto-deploy."
+            echo "Skip deploy: set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID secrets."
             exit 0
           fi
           npx wrangler pages deploy out --project-name=crypto-market-vn --commit-dirty=true

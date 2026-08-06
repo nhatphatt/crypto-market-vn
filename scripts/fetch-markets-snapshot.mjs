@@ -14,7 +14,7 @@ const ROOT = path.join(__dirname, "..");
 const OUT = path.join(ROOT, "data", "markets-snapshot.json");
 const CG = "https://api.coingecko.com/api/v3";
 const UA = "CryptoMarketVN-Snapshot/1.0";
-const DETAIL_N = 25;
+const DETAIL_N = Number(process.env.SNAPSHOT_DETAIL_N || 25);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

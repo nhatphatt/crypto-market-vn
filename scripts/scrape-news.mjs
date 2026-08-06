@@ -36,8 +36,8 @@ const FEEDS = [
   { name: "The Defiant", url: "https://thedefiant.io/feed/", lang: "en", weight: 1 },
 ];
 
-const MAX_POSTS = 200;
-const PER_FEED = 25;
+const MAX_POSTS = Number(process.env.SCRAPE_MAX_POSTS || 200);
+const PER_FEED = Number(process.env.SCRAPE_PER_FEED || 25);
 const MAX_BODY_CHARS = 12000;
 const HOT_HOURS = 72;
 const UA =
