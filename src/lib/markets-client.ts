@@ -152,21 +152,114 @@ async function fetchTopCoinsFromBinanceClient(
   return [];
 }
 
+const LS_MARKETS = "cmvn_markets_v2";
+const LS_MARKETS_TTL = 10 * 60_000;
+
+function readMarketsCache(limit: number): CoinMarket[] | null {
+  try {
+    const raw = localStorage.getItem(LS_MARKETS);
+    if (!raw) return null;
+    const { at, data } = JSON.parse(raw) as { at: number; data: CoinMarket[] };
+    if (Date.now() - at > LS_MARKETS_TTL) return null;
+    if (!Array.isArray(data) || data.length < 5) return null;
+    return data.slice(0, limit);
+  } catch {
+    return null;
+  }
+}
+
+function writeMarketsCache(data: CoinMarket[]) {
+  try {
+    localStorage.setItem(
+      LS_MARKETS,
+      JSON.stringify({ at: Date.now(), data }),
+    );
+  } catch {
+    /* */
+  }
+}
+
+/** Gắn % 1h / 7d từ klines cho top N (khi CoinGecko 429) */
+async function enrichPctFromBinance(
+  coins: CoinMarket[],
+  maxCoins = 40,
+): Promise<CoinMarket[]> {
+  const { fetchBinancePeriodChanges } = await import("./coin-detail-client");
+  const head = coins.slice(0, maxCoins);
+  const tail = coins.slice(maxCoins);
+  const out: CoinMarket[] = [];
+  // concurrency 6
+  const queue = [...head];
+  async function worker() {
+    while (queue.length) {
+      const c = queue.shift();
+      if (!c) break;
+      try {
+        const p = await fetchBinancePeriodChanges(c.symbol);
+        out.push({
+          ...c,
+          current_price: p.last && p.last > 0 ? p.last : c.current_price,
+          price_change_percentage_24h:
+            p.change24 ?? c.price_change_percentage_24h,
+          price_change_percentage_24h_in_currency:
+            p.change24 ?? c.price_change_percentage_24h_in_currency,
+          price_change_percentage_1h_in_currency:
+            p.change1h ?? c.price_change_percentage_1h_in_currency,
+          price_change_percentage_7d_in_currency:
+            p.change7d ?? c.price_change_percentage_7d_in_currency,
+        });
+      } catch {
+        out.push(c);
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: 6 }, () => worker()));
+  // preserve order by original rank
+  const byId = new Map(out.map((c) => [c.id, c]));
+  return [
+    ...head.map((c) => byId.get(c.id) || c),
+    ...tail,
+  ];
+}
+
 /**
- * Ưu tiên CoinGecko (đầy đủ) → Binance.
- * Merge: nếu CG ok nhưng thiếu vài field, giữ nguyên.
+ * Ưu tiên CoinGecko (đầy đủ) → cache local → Binance (+ enrich 1h/7d).
  */
 export async function fetchTopCoinsClient(
   limit = 100,
 ): Promise<CoinMarket[]> {
+  const cached =
+    typeof window !== "undefined" ? readMarketsCache(limit) : null;
+
   const cg = await fetchTopCoinsFromCoinGeckoClient(limit);
   if (cg && cg.length > 0) {
-    return cg.slice(0, limit).map((c) => ({
+    const list = cg.slice(0, limit).map((c) => ({
       ...c,
       image: c.image || iconUrlForSymbol(c.symbol),
     }));
+    writeMarketsCache(list);
+    return list;
   }
-  return fetchTopCoinsFromBinanceClient(limit);
+
+  // CG 429: dùng cache nếu còn % 1h/7d
+  if (
+    cached &&
+    cached.some(
+      (c) =>
+        c.price_change_percentage_1h_in_currency != null ||
+        c.price_change_percentage_7d_in_currency != null,
+    )
+  ) {
+    return cached;
+  }
+
+  const bn = await fetchTopCoinsFromBinanceClient(limit);
+  if (!bn.length) return cached || [];
+
+  // Gắn 1h/7d từ nến cho top coins
+  const enriched = await enrichPctFromBinance(bn, Math.min(36, limit));
+  writeMarketsCache(enriched);
+  return enriched;
 }
 
 export async function fetchGlobalMarketClient(): Promise<GlobalMarket | null> {

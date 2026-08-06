@@ -82,8 +82,7 @@ function fallbackCoin(id: string, tickerPrice = 0, change24: number | null = nul
     symbol,
     name,
     image: "",
-    descriptionVi:
-      "Dữ liệu chi tiết tạm thời không tải được từ CoinGecko. Giá realtime vẫn lấy từ Binance khi có cặp USDT.",
+    descriptionVi: "",
     homepage: undefined,
     categories: [],
     market_cap_rank: null,
