@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Crypto Market VN
 
-## Getting Started
+Site theo dõi **giá coin realtime**, **Fear & Greed**, **top tăng/giảm** và **tin crypto** tiếng Việt.
 
-First, run the development server:
+| | |
+|--|--|
+| Stack | Next.js 16 · Tailwind v4 · Phosphor · lightweight-charts |
+| Deploy | **Cloudflare** (OpenNext Workers) · `*.pages.dev` / workers.dev |
+| Traffic | X (không phụ thuộc Google SEO) |
+| Design | `DESIGN.md` (Binance dark + vàng `#FCD535`) |
+
+---
+
+## Tự động cập nhật (quan trọng)
+
+| Dữ liệu | Cơ chế | Tần suất |
+|---------|--------|----------|
+| **Giá / % 24h** | Browser → Binance WebSocket + REST | Realtime khi mở trang |
+| **Chart nến** | Browser → Binance klines (race 2 host) + fallback `/api/chart` | Cache tab ~90s |
+| **Vốn hóa, volume, dominance** | Server fetch CoinGecko (ISR) | ~30–120s revalidate |
+| **Fear & Greed** | alternative.me | ~10 phút |
+| **Tin tức** | GitHub Actions cào RSS → commit `data/news.json` → CF rebuild | **Mỗi 6 giờ** (+ chạy tay) |
+
+> Máy local **tắt** vẫn cập nhật: scrape chạy trên GitHub Actions; giá live chạy trên máy **người xem** (Binance public API).
+
+Workflow: `.github/workflows/daily-scrape.yml`  
+CI build: `.github/workflows/ci.yml`
+
+---
+
+## Chạy local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run scrape   # optional: cào tin mới
+npm run dev      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| Lệnh | Việc |
+|------|------|
+| `npm run dev` | Dev server |
+| `npm run scrape` | Cào RSS → `data/news.json` + `public/images/posts/*` |
+| `npm run build` | Production Next build (kiểm tra) |
+| `npm run pages:build` | Build OpenNext cho Cloudflare |
+| `npm run preview` | Preview bản CF local (Wrangler) |
+| `npm run deploy` | Deploy lên Cloudflare Workers |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Biến môi trường: copy `.env.example` → `.env.local`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+NEXT_PUBLIC_SITE_URL=https://your-domain.pages.dev
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy Cloudflare
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### A. Kết nối Git (khuyến nghị)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Push repo lên GitHub  
+2. [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages** → Create  
+3. Chọn framework **OpenNext** / hoặc build custom:
 
-## Deploy on Vercel
+| Setting | Value |
+|---------|--------|
+| Build command | `npx opennextjs-cloudflare build` |
+| Deploy command | `npx wrangler deploy` (hoặc preset OpenNext) |
+| Root | `/` |
+| Node | 22 |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. Env vars (Production):  
+   `NEXT_PUBLIC_SITE_URL` = URL public của site  
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+5. Bật **GitHub Actions** trên repo (Settings → Actions → allow) để workflow cào tin chạy được.
+
+### B. Deploy từ máy
+
+```bash
+npx wrangler login
+npm run deploy
+```
+
+Cần account Cloudflare + quyền Workers.
+
+### Sau khi deploy
+
+- Mỗi lần **Actions scrape** push tin → GitHub webhook → Cloudflare rebuild → tin mới lên production  
+- Giá / chart **không cần** rebuild (client gọi Binance)
+
+---
+
+## Nguồn dữ liệu
+
+| Loại | Nguồn | Key? |
+|------|--------|------|
+| Giá live, nến | Binance public REST/WS | Không |
+| Market cap, list coin | CoinGecko free | Không (có rate limit) |
+| Fear & Greed | alternative.me | Không |
+| Tin | RSS (Cointelegraph, CoinDesk, VN…) | Không |
+
+---
+
+## Cấu trúc
+
+```
+src/app/                 # /, /thi-truong, /tin-tuc, /coin/[id], /api/chart
+src/components/          # UI
+src/lib/                 # markets, binance, chart, news…
+scripts/scrape-news.mjs  # Cào tin
+data/news.json           # Snapshot tin (commit vào git)
+public/images/posts/     # Ảnh featured SVG
+.github/workflows/       # scrape + CI
+wrangler.toml            # Cloudflare Worker
+open-next.config.ts
+```
+
+---
+
+## Checklist trước go-live
+
+- [ ] `npm run build` pass  
+- [ ] Repo trên GitHub, Actions enabled  
+- [ ] Cloudflare project connected / `npm run deploy` ok  
+- [ ] `NEXT_PUBLIC_SITE_URL` đúng domain  
+- [ ] Chạy thử workflow **Cào tin tự động** (Run workflow)  
+- [ ] Mở production: giá live, chart BTC, tin hiển thị  
+
+---
+
+## Pháp lý
+
+Thông tin tham khảo, **không phải tư vấn đầu tư**. Link nguồn tin gốc; tự quản lý rủi ro.

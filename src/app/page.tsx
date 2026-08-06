@@ -1,69 +1,113 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "@phosphor-icons/react/dist/ssr";
+import { MarketOverviewBand } from "@/components/MarketOverviewBand";
+import { BlogCard } from "@/components/BlogCard";
+import { UpdatedBadge } from "@/components/UpdatedBadge";
+import { HomeMarkets } from "@/components/HomeMarkets";
+import { HeroLiveCoins } from "@/components/HeroLiveCoins";
+import { fetchFearGreed } from "@/lib/fear-greed";
+import {
+  enrichGlobalStats,
+  fetchGlobalMarket,
+  fetchTopCoins,
+} from "@/lib/markets";
+import { getLatestPosts, getNewsMeta } from "@/lib/news";
 
-export default function Home() {
+export const revalidate = 60;
+
+/**
+ * Design read: crypto market dashboard cho trader VN.
+ * VARIANCE 5 · MOTION 3 · DENSITY 7 (cockpit, không gallery).
+ * Hero = split text + coin live (lấp trống). Không border-t cắt section.
+ */
+export default async function HomePage() {
+  const [coins, globalRaw, fear, posts, newsMeta] = await Promise.all([
+    fetchTopCoins(30),
+    fetchGlobalMarket(),
+    fetchFearGreed(),
+    getLatestPosts(6),
+    getNewsMeta(),
+  ]);
+
+  const global = enrichGlobalStats(globalRaw, coins);
+  const updatedAt = global?.updated_at || new Date().toISOString();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:space-y-7 md:px-6 md:py-8">
+      {/*
+        Hero split: trái copy/CTA, phải 6 coin live (visual density).
+        Không card marketing chỉ chữ + gradient.
+      */}
+      <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-10">
+        <div className="flex max-w-xl flex-col justify-center py-1 md:py-2">
+          <h1 className="text-[1.75rem] font-semibold leading-[1.18] tracking-tight text-body sm:text-4xl sm:leading-[1.12] md:text-[2.65rem] md:leading-[1.1]">
+            Nắm bắt thị trường crypto mỗi ngày
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-3 max-w-lg text-base leading-relaxed text-muted-strong sm:mt-4 sm:text-lg sm:leading-relaxed">
+            Giá realtime, biến động 24 giờ, tâm lý market và tin nóng.
           </p>
+          <div className="mt-6 flex flex-wrap items-center gap-3 sm:mt-7">
+            <Link
+              href="/thi-truong"
+              className="inline-flex h-12 items-center gap-2 rounded-lg bg-primary px-6 text-base font-semibold text-ink transition-colors hover:bg-primary-active active:scale-[0.98]"
+            >
+              Thị trường
+              <ArrowRight weight="bold" className="h-5 w-5" />
+            </Link>
+            <Link
+              href="/tin-tuc"
+              className="inline-flex h-12 items-center rounded-lg border border-hairline bg-surface-card px-6 text-base font-semibold text-body hover:border-primary/35"
+            >
+              Tin tức
+            </Link>
+          </div>
+          <div className="mt-5 text-sm text-muted sm:mt-6 sm:text-[15px]">
+            <UpdatedBadge iso={updatedAt} label="Cập nhật" compact />
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="min-w-0">
+          <HeroLiveCoins coins={coins} />
         </div>
-      </main>
+      </section>
+
+      {/* Metrics – sát hero, không title dư + divider */}
+      <MarketOverviewBand global={global} fear={fear} />
+
+      {/* Bảng giá / movers */}
+      <HomeMarkets coins={coins} />
+
+      {/* Tin – chỉ gap, không border-t full page */}
+      <section>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-body md:text-lg">
+            Tin nóng
+          </h2>
+          <Link
+            href="/tin-tuc"
+            className="inline-flex items-center gap-1 text-sm font-medium text-muted-strong hover:text-primary"
+          >
+            Tất cả
+            <ArrowRight weight="bold" className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+        {posts.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {posts.map((post) => (
+              <BlogCard key={post.id} post={post} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-hairline bg-surface-card p-8 text-center text-sm text-muted">
+            Chưa có tin. Quay lại sau.
+          </div>
+        )}
+        {newsMeta.total > 0 && (
+          <p className="mt-2 text-xs text-muted">
+            {Math.min(posts.length, newsMeta.total)} bài hiển thị
+          </p>
+        )}
+      </section>
     </div>
   );
 }

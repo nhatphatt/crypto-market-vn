@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0B0E11"/>
+  <rect x="0" y="0" width="8" height="630" fill="#FCD535"/>
+  <text x="64" y="320" fill="#EAECEF" font-family="Segoe UI, system-ui, sans-serif" font-size="40" font-weight="700">Crypto Market VN</text>
+  <text x="64" y="370" fill="#707A8A" font-family="Segoe UI, system-ui, sans-serif" font-size="20">Tin crypto · Ảnh featured</text>
+</svg>

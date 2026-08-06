@@ -1,26 +1,188 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --primary: #fcd535;
+  --primary-active: #f0b90b;
+  --ink: #181a20;
+  --body: #eaecef;
+  --muted: #707a8a;
+  --muted-strong: #929aa5;
+  --hairline: #2b3139;
+  --canvas: #0b0e11;
+  --surface-card: #1e2329;
+  --surface-elevated: #2b3139;
+  --trading-up: #0ecb81;
+  --trading-down: #f6465d;
+  --background: var(--canvas);
+  --foreground: var(--body);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-active: var(--primary-active);
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-muted: var(--muted);
+  --color-muted-strong: var(--muted-strong);
+  --color-hairline: var(--hairline);
+  --color-canvas: var(--canvas);
+  --color-surface-card: var(--surface-card);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-trading-up: var(--trading-up);
+  --color-trading-down: var(--trading-down);
+  --font-sans: var(--font-outfit);
+  --font-mono: var(--font-plex);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--body);
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 35%, transparent);
+  color: var(--body);
+}
+
+/* subtle grain - fixed, non-interactive */
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/*
+ * Drag-scroll: Ẩn scrollbar native (không chiếm layout).
+ * Padding trên/dưới do component set đều nhau.
+ * Thanh kéo = overlay absolute, chỉ hiện khi hover.
+ */
+.drag-scroll-wrap {
+  position: relative;
+}
+
+.drag-scroll-track {
+  cursor: grab;
+  /* Ẩn hoàn toàn – zero layout space */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+}
+.drag-scroll-track::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+.drag-scroll-track.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+  scroll-behavior: auto;
+}
+.drag-scroll-track.is-dragging a {
+  pointer-events: none;
+}
+
+/* Overlay bar – ngoài flow, không làm lệch padding */
+.drag-scroll-overlay {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 2;
+}
+.group\/scroll:hover .drag-scroll-overlay,
+.group\/scroll:focus-within .drag-scroll-overlay {
+  opacity: 1;
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--hairline) 55%, transparent);
+}
+.drag-scroll-thumb {
+  height: 100%;
+  border-radius: 999px;
+  background: #5c6570;
+  min-width: 32px;
+  pointer-events: none;
+}
+.group\/scroll:hover .drag-scroll-thumb {
+  background: #6b7580;
+}
+
+/*
+ * Bảng: ẩn scrollbar layout; hiện thumb khi hover (overlay style
+ * bằng transparent track + fixed height 0 default... tables keep thin
+ * reserved only if needed — hide fully for consistency)
+ */
+.scroll-x-hover {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-x-hover::-webkit-scrollbar {
+  display: none;
+  height: 0;
+}
+/* Khi hover bảng: hiện scrollbar mỏng overlay (Firefox thin may add space;
+   WebKit height 6 only on hover can jump — accept small or keep hidden) */
+.group\/table:hover .scroll-x-hover {
+  scrollbar-width: thin;
+  scrollbar-color: #3a4149 transparent;
+}
+.group\/table:hover .scroll-x-hover::-webkit-scrollbar {
+  display: block;
+  height: 6px;
+}
+.group\/table:hover .scroll-x-hover::-webkit-scrollbar-thumb {
+  background: #3a4149;
+  border-radius: 999px;
 }
