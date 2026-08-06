@@ -18,10 +18,11 @@ const plex = IBM_Plex_Mono({
   display: "swap",
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://crypto-market-vn.pages.dev";
+
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-  ),
+  metadataBase: new URL(siteUrl),
   title: {
     default: `${SITE.name} | ${SITE.tagline}`,
     template: `%s | ${SITE.name}`,
@@ -32,17 +33,27 @@ export const metadata: Metadata = {
     apple: [{ url: "/logo.svg" }],
   },
   openGraph: {
-    title: SITE.name,
+    title: `${SITE.name} — Giá crypto realtime`,
     description: SITE.description,
+    url: siteUrl,
+    siteName: SITE.name,
     locale: "vi_VN",
     type: "website",
-    images: [{ url: "/logo.svg", width: 40, height: 40, alt: SITE.name }],
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Crypto Market VN — Giá realtime, Fear & Greed, chart nến, tin tiếng Việt",
+        type: "image/png",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
-    title: SITE.name,
+    card: "summary_large_image",
+    title: `${SITE.name} — Giá crypto realtime`,
     description: SITE.description,
-    images: ["/logo.svg"],
+    images: ["/og-image.png"],
   },
 };
 

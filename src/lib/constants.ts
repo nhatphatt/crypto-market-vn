@@ -7,6 +7,8 @@ export const SITE = {
   locale: "vi-VN",
   timezone: "Asia/Ho_Chi_Minh",
   logoPath: "/logo.svg",
+  /** Ảnh chia sẻ mạng xã hội 1200×630 */
+  ogImagePath: "/og-image.png",
 };
 
 export const NAV = [

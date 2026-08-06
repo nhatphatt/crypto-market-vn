@@ -18,17 +18,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = await getPostBySlug(slug);
   if (!post) return { title: "Không tìm thấy" };
   const title = post.titleVi || post.title;
-  const description = post.summaryVi || post.summary;
-  // Ưu tiên card local cho OG (ổn định)
-  const image =
-    post.brandCard || post.featuredImage || "/images/posts/fallback.svg";
+  const description = (post.summaryVi || post.summary || "").slice(0, 180);
+  // Mạng xã hội ưu tiên JPG/PNG 1200×630 — SVG brand card thường không hiện
+  const remote =
+    (post.coverRemote && post.coverRemote.startsWith("http")
+      ? post.coverRemote
+      : null) ||
+    (post.featuredImage && post.featuredImage.startsWith("http")
+      ? post.featuredImage
+      : null);
+  const image = remote || "/og-image.png";
   return {
     title,
     description,
     openGraph: {
       title,
       description,
-      images: [{ url: image, width: 1200, height: 630 }],
+      images: [
+        {
+          url: image,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
       type: "article",
       publishedTime: post.publishedAt,
     },
