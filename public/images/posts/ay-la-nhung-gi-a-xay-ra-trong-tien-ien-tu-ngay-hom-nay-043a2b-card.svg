@@ -24,6 +24,6 @@
 <text x="64" y="250" fill="#EAECEF" font-family="Segoe UI, system-ui, sans-serif" font-size="34" font-weight="700">Đây là những gì đã xảy ra trong tiền</text>
 <text x="64" y="296" fill="#EAECEF" font-family="Segoe UI, system-ui, sans-serif" font-size="34" font-weight="700">điện tử ngày hôm nay</text>
 <rect x="64" y="480" width="200" height="38" rx="6" fill="#FCD535"/>
-<text x="164" y="505" text-anchor="middle" fill="#181A20" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700">BTC · ETH · SOL</text>
+<text x="164" y="505" text-anchor="middle" fill="#181A20" font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="700">BTC · ETH · XRP</text>
 <text x="64" y="560" fill="#707A8A" font-family="Segoe UI, system-ui, sans-serif" font-size="13">Tin thi truong · Tham khao</text>
 </svg>
