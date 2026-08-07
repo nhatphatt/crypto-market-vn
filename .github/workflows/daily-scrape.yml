@@ -39,8 +39,10 @@ jobs:
         run: npm run scrape
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-          SCRAPE_MAX_POSTS: "100"
+          # Số bài MỚI tối đa mỗi lần chạy. Bài cũ luôn được giữ nguyên.
+          SCRAPE_MAX_POSTS: "60"
           SCRAPE_PER_FEED: "12"
+          SCRAPE_ARCHIVE_MAX: "1000"
 
       - name: Markets snapshot (CI limits)
         continue-on-error: true
@@ -48,6 +50,19 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           SNAPSHOT_DETAIL_N: "12"
+
+      - name: Guard - không cho phép mất bài
+        run: |
+          node -e "
+          const fs=require('fs');
+          const cur=JSON.parse(fs.readFileSync('data/news.json','utf8')).posts.length;
+          const { execSync }=require('child_process');
+          let old=0;
+          try { old=JSON.parse(execSync('git show HEAD:data/news.json').toString()).posts.length; } catch(e){}
+          console.log('Bài trước:', old, '→ sau:', cur);
+          if (cur < old) { console.error('✗ Số bài GIẢM. Huỷ commit để tránh mất bài.'); process.exit(1); }
+          console.log('✓ Không mất bài.');
+          "
 
       - name: Commit data if changed
         run: |
@@ -71,8 +86,10 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "Skip deploy: set CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID secrets."
-            exit 0
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Thiếu CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID."
+            echo "::error::Cào tin xong nhưng KHÔNG deploy được → web không có tin mới."
+            echo "::error::Thêm secrets tại: Settings → Secrets and variables → Actions"
+            exit 1
           fi
           npx wrangler pages deploy out --project-name=crypto-market-vn --commit-dirty=true

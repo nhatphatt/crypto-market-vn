@@ -36,7 +36,10 @@ const FEEDS = [
   { name: "The Defiant", url: "https://thedefiant.io/feed/", lang: "en", weight: 1 },
 ];
 
+/** Số bài MỚI tối đa cào thêm mỗi lần chạy (không ảnh hưởng bài cũ đã có). */
 const MAX_POSTS = Number(process.env.SCRAPE_MAX_POSTS || 200);
+/** Trần kho lưu trữ. Chỉ cắt khi kho vượt mức này, cắt bài cũ nhất. */
+const ARCHIVE_MAX = Number(process.env.SCRAPE_ARCHIVE_MAX || 1000);
 const PER_FEED = Number(process.env.SCRAPE_PER_FEED || 25);
 const MAX_BODY_CHARS = 12000;
 const HOT_HOURS = 72;
@@ -412,9 +415,19 @@ async function main() {
   await mkdir(path.dirname(DATA_FILE), { recursive: true });
   await mkdir(IMAGE_DIR, { recursive: true });
 
-  // Làm mới toàn bộ để ưu tiên tin mới + full content VI
+  // CHỈ THÊM BÀI MỚI — không xoá bài cũ.
+  // Nạp kho hiện có trước, bài cào mới sẽ ghi đè theo id (bài trùng = bản mới hơn),
+  // nguồn nào chết thì bài cũ của nguồn đó vẫn còn nguyên.
+  const existing = await loadExisting();
   const byId = new Map();
-  const sourcesHit = new Set();
+  for (const p of existing.posts || []) {
+    if (p?.id) byId.set(p.id, p);
+  }
+  const existingCount = byId.size;
+  console.log(`Kho hiện có: ${existingCount} bài (sẽ giữ nguyên, chỉ thêm mới)\n`);
+
+  const sourcesHit = new Set(existing.sources || []);
+  let addedThisRun = 0;
 
   console.log("Cào tin mới nhất + full nội dung + dịch tiếng Việt…\n");
 
@@ -429,7 +442,8 @@ async function main() {
         const link = item.link || item.guid;
         if (!link || typeof link !== "string") continue;
         const id = createHash("sha1").update(link).digest("hex").slice(0, 16);
-        if (byId.has(id)) continue;
+        if (byId.has(id)) continue; // đã có trong kho → bỏ qua, không cào lại
+        if (addedThisRun >= MAX_POSTS) break; // đủ hạn ngạch bài mới cho lần chạy này
 
         const titleRaw = stripHtml(item.title || "Không tiêu đề").slice(0, 240);
         const publishedAt = item.isoDate
@@ -536,6 +550,7 @@ async function main() {
           lang: feed.lang,
           score: hotScore(publishedAt, feed.weight),
         });
+        addedThisRun++;
 
         await sleep(150);
       }
@@ -544,15 +559,24 @@ async function main() {
     }
   }
 
+  // Sắp xếp theo thời gian đăng (mới nhất trước) để khi cắt trần kho
+  // thì chỉ rụng bài CŨ NHẤT, không rụng nhầm theo score đã lỗi thời.
   const posts = [...byId.values()]
-    .sort((a, b) => {
-      // Điểm hot trước, rồi thời gian
-      if (b.score !== a.score) return b.score - a.score;
-      return (
-        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-      );
-    })
-    .slice(0, MAX_POSTS);
+    .sort(
+      (a, b) =>
+        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
+    )
+    .slice(0, ARCHIVE_MAX);
+
+  // Chốt an toàn: không bao giờ ghi ra file ít bài hơn kho cũ.
+  if (posts.length < existingCount) {
+    console.error(
+      `\n✗ DỪNG: kết quả ${posts.length} bài < kho cũ ${existingCount} bài. Không ghi đè để tránh mất bài.`,
+    );
+    process.exit(1);
+  }
+
+  const added = posts.length - existingCount;
 
   const index = {
     updatedAt: new Date().toISOString(),
@@ -562,7 +586,7 @@ async function main() {
 
   await writeFile(DATA_FILE, JSON.stringify(index, null, 2), "utf8");
   console.log(
-    `\nXong: ${posts.length} bài · nguồn: ${index.sources.join(", ")}`,
+    `\nXong: ${posts.length} bài (+${added} mới, giữ ${existingCount} cũ) · nguồn: ${index.sources.join(", ")}`,
   );
   console.log(`File: ${DATA_FILE}`);
 }
