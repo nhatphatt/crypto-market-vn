@@ -44,13 +44,26 @@ async function loadIndex(): Promise<NewsIndex> {
   return { ...EMPTY };
 }
 
+/**
+ * Sắp xếp tin: MỚI NHẤT LÊN ĐẦU.
+ *
+ * Trước đây ưu tiên `score` rồi mới tới ngày, nhưng `score` được tính một lần
+ * lúc cào rồi đóng băng trong news.json — bài cũ giữ điểm cao vĩnh viễn và
+ * đè lên bài mới. Giờ sắp thuần theo thời gian đăng.
+ */
 function sortPosts(posts: NewsPost[]): NewsPost[] {
   return posts.slice().sort((a, b) => {
-    const scoreDiff = (b.score ?? 0) - (a.score ?? 0);
-    if (Math.abs(scoreDiff) > 0.01) return scoreDiff;
-    return (
-      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
-    );
+    const tb = new Date(b.publishedAt).getTime();
+    const ta = new Date(a.publishedAt).getTime();
+    const bValid = Number.isFinite(tb);
+    const aValid = Number.isFinite(ta);
+    // Bài thiếu/hỏng ngày đẩy xuống cuối thay vì nhảy lên đầu
+    if (!aValid && !bValid) return 0;
+    if (!aValid) return 1;
+    if (!bValid) return -1;
+    if (tb !== ta) return tb - ta;
+    // Cùng thời điểm thì bài "hot" hơn lên trước
+    return (b.score ?? 0) - (a.score ?? 0);
   });
 }
 
