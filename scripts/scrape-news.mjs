@@ -23,9 +23,12 @@ const IMAGE_DIR = path.join(ROOT, "public", "images", "posts");
 /** lang: vi = không dịch; en = dịch sang vi */
 const FEEDS = [
   // Ưu tiên nguồn tiếng Việt
-  { name: "Cointelegraph VN", url: "https://vn.cointelegraph.com/rss", lang: "vi", weight: 3 },
+  // Cointelegraph VN đã đóng feed (410 Gone) từ 08/2026 → gỡ bỏ.
   { name: "Blog Tiền Ảo", url: "https://blogtienao.com/feed/", lang: "vi", weight: 3 },
-  { name: "Coin68", url: "https://coin68.com/feed/", lang: "vi", weight: 3 },
+  // Coin68 đổi cấu trúc: /feed/ giờ trả HTML → dùng feed RSS thật.
+  { name: "Coin68", url: "https://coin68.com/rss/tin-moi-nhat.rss", lang: "vi", weight: 3 },
+  { name: "Coin68 Nổi bật", url: "https://coin68.com/rss/tin-noi-bat.rss", lang: "vi", weight: 2 },
+  { name: "Coin68 DeFi", url: "https://coin68.com/rss/defi.rss", lang: "vi", weight: 1 },
   { name: "Bitcoin Vietnam News", url: "https://news.bitcoinvn.io/feed/", lang: "vi", weight: 2 },
   // Quốc tế (dịch)
   { name: "Cointelegraph", url: "https://cointelegraph.com/rss", lang: "en", weight: 2 },
@@ -402,6 +405,55 @@ function hotScore(publishedAt, weight = 1) {
   return recency * 10 + weight * 5 - ageH * 0.1;
 }
 
+/**
+ * Parse feed chịu lỗi:
+ * 1) thử parse thẳng
+ * 2) nếu URL trả HTML (site đổi cấu trúc, vd Coin68), dò <link rel=alternate>
+ *    để tìm feed RSS thật rồi parse lại
+ * 3) làm sạch ký tự & không hợp lệ khiến XML parser chết
+ */
+async function parseFeedResilient(parser, url) {
+  try {
+    return await parser.parseURL(url);
+  } catch (err) {
+    const raw = await fetch(url, {
+      headers: { "user-agent": "Mozilla/5.0 (compatible; CryptoMarketVN/1.0)" },
+    }).then((r) => r.text());
+
+    // Trả HTML thay vì XML → tìm feed thật trong <link rel="alternate">
+    if (/^\s*<!DOCTYPE html|^\s*<html/i.test(raw)) {
+      const alt = [
+        ...raw.matchAll(
+          /type=["']application\/(?:rss\+xml|atom\+xml)["'][^>]*href=["']([^"']+)["']/gi,
+        ),
+      ].map((m) => m[1]);
+      const altHref = [
+        ...raw.matchAll(
+          /href=["']([^"']+)["'][^>]*type=["']application\/(?:rss\+xml|atom\+xml)["']/gi,
+        ),
+      ].map((m) => m[1]);
+      for (const cand of [...alt, ...altHref]) {
+        const abs = new URL(cand, url).href;
+        if (abs === url) continue;
+        try {
+          const p = await parser.parseURL(abs);
+          if (p?.items?.length) {
+            console.log(`   ↻ dùng feed thật: ${abs}`);
+            return p;
+          }
+        } catch {
+          /* thử ứng viên kế tiếp */
+        }
+      }
+      throw err;
+    }
+
+    // XML nhưng có & trần / entity hỏng → làm sạch rồi parse chuỗi
+    const cleaned = raw.replace(/&(?!(?:[a-zA-Z][a-zA-Z0-9]{0,31}|#\d+|#x[0-9a-fA-F]+);)/g, "&amp;");
+    return await parser.parseString(cleaned);
+  }
+}
+
 async function loadExisting() {
   try {
     const raw = await readFile(DATA_FILE, "utf8");
@@ -434,7 +486,7 @@ async function main() {
   for (const feed of FEEDS) {
     try {
       console.log(`→ ${feed.name} (${feed.lang})`);
-      const parsed = await parser.parseURL(feed.url);
+      const parsed = await parseFeedResilient(parser, feed.url);
       sourcesHit.add(feed.name);
       const items = (parsed.items || []).slice(0, PER_FEED);
 
